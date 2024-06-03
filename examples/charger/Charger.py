@@ -20,58 +20,12 @@ import helics as h
 import logging
 import numpy as np
 
-from dots_infrastructure import SubscriptionDescription, PublicationDescription, HelicsFederateExecutor, HelicValueFederateInformation, generate_publications_from_value_descriptions, generate_subscriptions_from_value_descriptions, get_simulator_configuration_from_environment, get_single_param_with_name
+from dots_infrastructure import HelicsValueFederateExecutor, HelicsEsdlMessageFederateExecutor, HelicsMessageFederateInformation, PublicationDescription, HelicValueFederateInformation, SubscriptionDescription, generate_publications_from_value_descriptions, generate_subscriptions_from_value_descriptions, get_simulator_configuration_from_environment, get_single_param_with_name
 
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.DEBUG)
-
-
-def destroy_federate(fed):
-    """
-    As part of ending a HELICS co-simulation it is good housekeeping to
-    formally destroy a federate. Doing so informs the rest of the
-    federation that it is no longer a part of the co-simulation and they
-    should proceed without it (if applicable). Generally this is done
-    when the co-simulation is complete and all federates end execution
-    at more or less the same wall-clock time.
-
-    :param fed: Federate to be destroyed
-    :return: (none)
-    """
-    
-    # Adding extra time request to clear out any pending messages to avoid
-    #   annoying errors in the broker log. Any message are tacitly disregarded.
-    grantedtime = h.helicsFederateRequestTime(fed, h.HELICS_TIME_MAXTIME)
-    status = h.helicsFederateDisconnect(fed)
-    h.helicsFederateDestroy(fed)
-    logger.info("Federate finalized")
-
-
-def get_new_battery(numBattery):
-    """
-    Using hard-coded probabilities, a distribution of batteries of
-    fixed battery sizes are generated. The number of batteries is a user
-    provided parameter.
-
-    :param numBattery: Number of batteries to generate
-    :return
-        listOfBatts: List of generated batteries
-
-    """
-
-    # Probabilities of a new EV battery having small capacity (sm),
-    # medium capacity (med), and large capacity (lg).
-    sm = 0.2
-    med = 0.2
-    lg = 0.6
-
-    # Batteries have different sizes:
-    # [25,62,100]
-    listOfBatts = np.random.choice([25, 62, 100], numBattery, p=[sm, med, lg]).tolist()
-
-    return listOfBatts
 
 def charger_calculation(param_dict : dict):
     ev_current = get_single_param_with_name(param_dict, "EV_current")
@@ -93,11 +47,13 @@ if __name__ == "__main__":
         PublicationDescription(True, "EConnection", "EV_voltage", "V", h.HelicsDataType.DOUBLE)
     ]
 
-    logger.info(type(generate_subscriptions_from_value_descriptions))
+    esdl_message_federate = HelicsEsdlMessageFederateExecutor(simulator_configuration, HelicsMessageFederateInformation(60, False, False, True, h.HelicsLogLevel.DEBUG, f'{simulator_configuration.model_id}/esdl'))
+
+    energy_system = esdl_message_federate.wait_for_esdl_file()
 
     subscriptions_values = generate_subscriptions_from_value_descriptions(subscriptions_values, simulator_configuration)
     publication_values = generate_publications_from_value_descriptions(publictations_values, simulator_configuration)
 
-    federate_executor = HelicsFederateExecutor(HelicValueFederateInformation(60, False, True, True, h.HelicsLogLevel.DEBUG,subscriptions_values, publication_values, charger_calculation), simulator_configuration)
+    federate_executor = HelicsValueFederateExecutor(HelicValueFederateInformation(60, False, True, True, h.HelicsLogLevel.DEBUG,subscriptions_values, publication_values, charger_calculation), simulator_configuration)
 
     federate_executor.start_value_federate()

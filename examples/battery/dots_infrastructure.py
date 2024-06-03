@@ -1,8 +1,11 @@
+from base64 import b64decode
 import os
 from typing import List
 import helics as h
 import logging
 from dataclasses import dataclass
+from esdl import esdl, EnergySystem
+from esdl.esdl_handler import EnergySystemHandler
 import json
 
 logger = logging.getLogger(__name__)
@@ -30,15 +33,24 @@ class CalculationServiceOutput:
     helics_publication : h.HelicsPublication = None
 
 @dataclass
-class HelicValueFederateInformation:
+class HelicsFederateInformation:
     time_period_in_seconds : float
     uninterruptible : bool
     wait_for_current_time_update : bool
     terminate_on_error : bool
     log_level : int
+
+@dataclass
+class HelicsMessageFederateInformation(HelicsFederateInformation):
+    endpoint_name : str
+
+@dataclass
+class HelicValueFederateInformation(HelicsFederateInformation):
+    calculation_name : str
     inputs : List[CalculationServiceInput]
     outputs : List[CalculationServiceOutput]
     calculation_function : any
+    energy_system : EnergySystem
 
 @dataclass
 class SubscriptionDescription:
@@ -104,13 +116,56 @@ def get_vector_param_with_name(param_dict : dict, name : str):
 
 class HelicsFederateExecutor:
 
-    def __init__(self, info : HelicValueFederateInformation, simulator_configuration : SimulatorConfiguration):
+    def __init__(self, simulator_configuration : SimulatorConfiguration):
+        self.simulator_configuration = simulator_configuration
 
+    def destroy_federate(fed):
+        # Adding extra time request to clear out any pending messages to avoid
+        #   annoying errors in the broker log. Any message are tacitly disregarded.
+        h.helicsFederateRequestTime(fed, h.HELICS_TIME_MAXTIME)
+        h.helicsFederateDisconnect(fed)
+        h.helicsFederateDestroy(fed)
+        logger.info("Federate finalized")
+
+    def init_federate_info(self, info : HelicsFederateInformation):
+        federate_info = h.helicsCreateFederateInfo()
+        h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
+        h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
+        h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.time_period_in_seconds)
+        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.UNINTERRUPTIBLE, info.uninterruptible)
+        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.WAIT_FOR_CURRENT_TIME_UPDATE, info.wait_for_current_time_update)
+        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFlag.TERMINATE_ON_ERROR, info.terminate_on_error)
+        h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
+        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, info.log_level)
+        return federate_info
+
+class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
+    def __init__(self, simulator_configuration : SimulatorConfiguration, info : HelicsMessageFederateInformation):
+        super().__init__(simulator_configuration)
+        federate_info = self.init_federate_info(info)
+        self.message_federate = h.helicsCreateMessageFederate(info.endpoint_name, federate_info)
+        self.message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, info.endpoint_name)
+
+    def wait_for_esdl_file(self) -> esdl.EnergySystem:
+        self.message_federate.enter_executing_mode()
+        h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME)
+        esdl_file_base64 = h.helicsMessageGetString(self.message_enpoint)
+        self.destroy_federate(self.message_federate)
+        esdl_string = b64decode(esdl_file_base64 + b"==".decode("utf-8")).decode("utf-8")
+
+        esh = EnergySystemHandler()
+        esh.load_from_string(esdl_string)
+        return esh.get_energy_system()
+
+class HelicsValueFederateExecutor(HelicsFederateExecutor):
+
+    def __init__(self, simulator_configuration : SimulatorConfiguration, info : HelicValueFederateInformation):
+        super().__init__(simulator_configuration)
         self.input_dict : dict[str, List[CalculationServiceInput]] = {}
         self.output_dict : dict[str, List[CalculationServiceOutput]] = {}
         self.simulator_configuration = simulator_configuration
 
-        federate_info = self.init_value_federate(info)
+        federate_info = self.init_federate_info(info)
         value_federate = h.helicsCreateValueFederate(simulator_configuration.model_id, federate_info)
 
         self.init_inputs(info, value_federate)
@@ -145,18 +200,6 @@ class HelicsFederateExecutor:
             else:
                 self.input_dict[input.simulator_esdl_id] = [input]
 
-    def init_value_federate(self, info : HelicValueFederateInformation):
-        federate_info = h.helicsCreateFederateInfo()
-        h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
-        h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
-        h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.time_period_in_seconds)
-        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.UNINTERRUPTIBLE, info.uninterruptible)
-        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.WAIT_FOR_CURRENT_TIME_UPDATE, info.wait_for_current_time_update)
-        h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFlag.TERMINATE_ON_ERROR, info.terminate_on_error)
-        h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
-        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, info.log_level)
-        return federate_info
-
     def get_helics_value(self, helics_sub : CalculationServiceInput):
         logger.debug(f"Getting value for subscription: {helics_sub.input_name} with type: {helics_sub.input_type}")
         input_type = helics_sub.input_type
@@ -187,7 +230,7 @@ class HelicsFederateExecutor:
             return h.helicsInputGetBytes(sub)
         else:
             raise ValueError("Unsupported Helics Data Type")
-        
+
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
         logger.debug(f"Publishing value: {value} for publication: {helics_output.output_name} with type: {helics_output.output_type}")
         pub = helics_output.helics_publication
@@ -248,4 +291,4 @@ class HelicsFederateExecutor:
                     value_to_publish = pub_values[output.output_name]
                     self.publish_helics_value(output, value_to_publish)
 
-
+        self.destroy_federate(self.value_federate)
