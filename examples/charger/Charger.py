@@ -1,26 +1,11 @@
 # -*- coding: utf-8 -*-
-"""
-Created on 9/28/2020
-
-This is a simple battery value federate that models the physics of an EV
-battery as it is being charged. The federate receives a voltage signal
-representing the voltage applied to the charging terminals of the battery
-and based on its internally modeled SOC, calculates the current draw of
-the battery and sends it back to the EV federate. Note that this SOC should
-be considered the true SOC of the battery which may be different than the
-SOC modeled by the charger. Each battery ceases charging when its SOC reaches 100%.
-
-@author: Trevor Hardy
-trevor.hardy@pnnl.gov
-"""
-
 import random
 import matplotlib.pyplot as plt
 import helics as h
 import logging
 import numpy as np
 
-from dots_infrastructure import HelicsValueFederateExecutor, HelicsEsdlMessageFederateExecutor, HelicsMessageFederateInformation, PublicationDescription, HelicValueFederateInformation, SubscriptionDescription, generate_publications_from_value_descriptions, generate_subscriptions_from_value_descriptions, get_simulator_configuration_from_environment, get_single_param_with_name
+from dots_infrastructure.DotsInfrastructure import HelicsCalculationInformation, HelicsSimulationExecutor, PublicationDescription,  SubscriptionDescription, generate_publications_from_value_descriptions, generate_subscriptions_from_value_descriptions, get_simulator_configuration_from_environment, get_single_param_with_name
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +22,6 @@ def charger_calculation(param_dict : dict):
 
 if __name__ == "__main__":
 
-    ##########  Registering  federate and configuring from JSON################
     simulator_configuration = get_simulator_configuration_from_environment()
 
     subscriptions_values = [
@@ -47,13 +31,11 @@ if __name__ == "__main__":
         PublicationDescription(True, "EConnection", "EV_voltage", "V", h.HelicsDataType.DOUBLE)
     ]
 
-    esdl_message_federate = HelicsEsdlMessageFederateExecutor(simulator_configuration, HelicsMessageFederateInformation(60, False, False, True, h.HelicsLogLevel.DEBUG, f'{simulator_configuration.model_id}/esdl'))
-
-    energy_system = esdl_message_federate.wait_for_esdl_file()
+    simulator_configuration = get_simulator_configuration_from_environment()
 
     subscriptions_values = generate_subscriptions_from_value_descriptions(subscriptions_values, simulator_configuration)
     publication_values = generate_publications_from_value_descriptions(publictations_values, simulator_configuration)
-
-    federate_executor = HelicsValueFederateExecutor(HelicValueFederateInformation(60, False, True, True, h.HelicsLogLevel.DEBUG,subscriptions_values, publication_values, charger_calculation), simulator_configuration)
-
-    federate_executor.start_value_federate()
+    calculation_information = HelicsCalculationInformation(30, False, False, True, h.HelicsLogLevel.DEBUG, "battery_calculation", subscriptions_values, publication_values, charger_calculation)
+    helics_simulation_executor = HelicsSimulationExecutor()
+    helics_simulation_executor.add_calculation(calculation_information)
+    helics_simulation_executor.start_simulation()

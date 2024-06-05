@@ -1,4 +1,1 @@
-helics==3.4.0
-matplotlib==3.8.2
-numpy==1.26.4
-pyesdl==22.11.2
+dots-infrastructure==0.0.1
