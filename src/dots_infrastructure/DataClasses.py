@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List
 import helics as h
 
+EsdlId = str
+
 @dataclass
 class CalculationServiceInput:
     esdl_asset_type : str
@@ -64,3 +66,15 @@ class SimulatorConfiguration:
     model_id : str
     broker_ip : str
     broker_port : int
+
+@dataclass
+class CalculationService:
+    esdl_type: str
+    calc_service_name: str
+    service_image_url: str
+    nr_of_models: int
+
+@dataclass
+class ConnectedCalculationServcie:
+    esdl_type : str
+    connected_services : List[EsdlId]
