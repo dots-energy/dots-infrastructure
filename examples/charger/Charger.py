@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 import random
-import matplotlib.pyplot as plt
 import helics as h
 import logging
-import numpy as np
-
 from dots_infrastructure.DataClasses import HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
-from dots_infrastructure.HelperFunctions import get_simulator_configuration_from_environment, get_single_param_with_name
+from dots_infrastructure.HelperFunctions import get_single_param_with_name
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
@@ -29,8 +26,6 @@ if __name__ == "__main__":
     publication_values = [
         PublicationDescription(True, "EConnection", "EV_voltage", "V", h.HelicsDataType.DOUBLE)
     ]
-
-    simulator_configuration = get_simulator_configuration_from_environment()
 
     calculation_information = HelicsCalculationInformation(30, False, False, True, h.HelicsLogLevel.DEBUG, "battery_calculation", subscriptions_values, publication_values, charger_calculation)
     helics_simulation_executor = HelicsSimulationExecutor()

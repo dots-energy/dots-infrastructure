@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 import helics as h
 import helics as h
@@ -6,7 +7,7 @@ from esdl import esdl, EnergySystem
 from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsFederateInformation, HelicsMessageFederateInformation, SimulatorConfiguration
 from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get_energy_system_from_base64_encoded_esdl_string
 from dots_infrastructure.Logger import LOGGER
-from dots_infrastructure.HelperFunctions import generate_publications_from_value_descriptions, get_simulator_configuration_from_environment
+from dots_infrastructure import HelperFunctions
 
 
 class HelicsFederateExecutor:
@@ -61,9 +62,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         self.helics_value_federate_info = info
 
     def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
-        outputs = generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
+        outputs = HelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
         for output in outputs:
             key = f'{output.esdl_asset_type}/{output.output_name}/{output.output_esdl_id}'
+            LOGGER.info(f"Registering publication: {key}")
             if output.global_flag:
                 pub = h.helicsFederateRegisterGlobalPublication(value_federate, key, output.output_type, output.output_unit)
             else:
@@ -77,7 +79,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
     def init_inputs(self, info : HelicsCalculationInformation, energy_system : esdl.EnergySystem, value_federate : h.HelicsValueFederate):
         inputs : List[CalculationServiceInput] = []
         for esdl_id in self.simulator_configuration.esdl_ids:
-            inputs_for_esdl_object = get_connected_input_esdl_objects(esdl_id, self.simulator_configuration.calculation_services, energy_system)
+            inputs_for_esdl_object = get_connected_input_esdl_objects(esdl_id, self.simulator_configuration.calculation_services, info.inputs, energy_system)
             inputs.extend(inputs_for_esdl_object)
 
         for input in inputs:
@@ -96,7 +98,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         value_federate = h.helicsCreateValueFederate(f"{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}", federate_info)
 
         self.init_inputs(self.helics_value_federate_info, energy_system, value_federate)
-        self.init_outputs(self.helics_value_federate_info, energy_system, value_federate)
+        self.init_outputs(self.helics_value_federate_info, value_federate)
         self.calculation_function = self.helics_value_federate_info.calculation_function
         self.value_federate = value_federate
 
@@ -163,15 +165,16 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             raise ValueError("Unsupported Helics Data Type")
 
     def start_value_federate(self):
+        LOGGER.info("Entering HELICS execution mode")
         h.helicsFederateEnterExecutingMode(self.value_federate)
-    
+
         LOGGER.info("Entered HELICS execution mode")
     
         hours = 24 * 7 # replace by simulation parameters
         total_interval = int(60 * 60 * hours) # replace by simulation parameters
         update_interval = int(h.helicsFederateGetTimeProperty(self.value_federate, h.HELICS_PROPERTY_TIME_PERIOD))
         grantedtime = 0
-    
+
         # As long as granted time is in the time range to be simulated...
         while grantedtime < total_interval:
             requested_time = grantedtime + update_interval
@@ -196,7 +199,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
 class HelicsSimulationExecutor:
 
     def __init__(self):
-        self.simulator_configuration = get_simulator_configuration_from_environment()
+        self.simulator_configuration = HelperFunctions.get_simulator_configuration_from_environment()
         self.calculations: List[HelicsCalculationInformation] = []
         self.energy_system = None
 
@@ -212,7 +215,11 @@ class HelicsSimulationExecutor:
 
     def start_simulation(self):
         self.energy_system = self.init_simulation()
+        self.executor = ThreadPoolExecutor(max_workers=len(self.calculations))
         for calculation in self.calculations:
             federate_executor = HelicsValueFederateExecutor(self.simulator_configuration, calculation)
             federate_executor.init_federate(self.energy_system)
-            federate_executor.start_value_federate()
+            self.executor.submit(federate_executor.start_value_federate)
+
+    def stop_simulation(self):
+        self.executor.shutdown(True)

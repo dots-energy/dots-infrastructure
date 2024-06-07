@@ -47,8 +47,8 @@ class SubscriptionDescription:
 class PublicationDescription:
     global_flag : bool
     esdl_type : str
-    input_name : str
-    input_unit : str
+    output_name : str
+    output_unit : str
     data_type : h.HelicsDataType
 
 @dataclass
@@ -61,21 +61,8 @@ class HelicsCalculationInformation(HelicsFederateInformation):
 @dataclass
 class SimulatorConfiguration:
     esdl_type : str
-    connected_services : dict
     esdl_ids : List[str]
     model_id : str
     broker_ip : str
     broker_port : int
     calculation_services : List[str]
-
-@dataclass
-class CalculationService:
-    esdl_type: str
-    calc_service_name: str
-    service_image_url: str
-    nr_of_models: int
-
-@dataclass
-class ConnectedCalculationServcie:
-    esdl_type : str
-    connected_services : List[EsdlId]

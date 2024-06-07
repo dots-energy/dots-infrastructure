@@ -7,7 +7,7 @@ from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get
 
 class TestParse(unittest.TestCase):
 
-    def test_get_model_list(self):
+    def test_parsing_logic(self):
 
         # Arrange
         with open("test.esdl", mode="r") as esdl_file:
