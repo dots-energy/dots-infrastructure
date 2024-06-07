@@ -15,20 +15,8 @@ def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     model_id = os.getenv("model_id", "test-id")
     broker_ip = os.getenv("broker_ip", "127.0.0.1")
     broker_port = int(os.getenv("broker_port", "30000"))
-    return SimulatorConfiguration(esdl_type, connected_services, esdl_ids, model_id, broker_ip, broker_port)
-
-def generate_subscriptions_from_value_descriptions(value_descriptions : List[SubscriptionDescription], simulator_configuration : SimulatorConfiguration) -> List[CalculationServiceInput]:
-    ret_val = []
-    for value_description in value_descriptions:
-        for simulator_esdl_id in simulator_configuration.esdl_ids:
-            connected_esdl_assets = simulator_configuration.connected_services[simulator_esdl_id]
-            for connected_esdl_asset in connected_esdl_assets:
-                if connected_esdl_asset["esdl_type"] == value_description.esdl_type:
-                    for esdl_id in connected_esdl_asset["connected_services"]:
-                        ret_val.append(CalculationServiceInput(value_description.esdl_type, value_description.input_name, esdl_id, value_description.input_unit, value_description.input_type, simulator_esdl_id))
-    if len(ret_val) == 0:
-        LOGGER.warning("Subscription list is empty!")
-    return ret_val
+    calculation_services = os.getenv("calculation_services")
+    return SimulatorConfiguration(esdl_type, connected_services, esdl_ids, model_id, broker_ip, broker_port, calculation_services)
 
 def generate_publications_from_value_descriptions(value_descriptions : List[PublicationDescription], simulator_configuration : SimulatorConfiguration) -> List[CalculationServiceOutput]:
     ret_val = []

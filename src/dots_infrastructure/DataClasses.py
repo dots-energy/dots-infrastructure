@@ -37,13 +37,6 @@ class HelicsMessageFederateInformation(HelicsFederateInformation):
     endpoint_name : str
 
 @dataclass
-class HelicsCalculationInformation(HelicsFederateInformation):
-    calculation_name : str
-    inputs : List[CalculationServiceInput]
-    outputs : List[CalculationServiceOutput]
-    calculation_function : any
-
-@dataclass
 class SubscriptionDescription:
     esdl_type : str
     input_name : str
@@ -59,6 +52,13 @@ class PublicationDescription:
     data_type : h.HelicsDataType
 
 @dataclass
+class HelicsCalculationInformation(HelicsFederateInformation):
+    calculation_name : str
+    inputs : List[SubscriptionDescription]
+    outputs : List[PublicationDescription]
+    calculation_function : any
+
+@dataclass
 class SimulatorConfiguration:
     esdl_type : str
     connected_services : dict
@@ -66,6 +66,7 @@ class SimulatorConfiguration:
     model_id : str
     broker_ip : str
     broker_port : int
+    calculation_services : List[str]
 
 @dataclass
 class CalculationService:
