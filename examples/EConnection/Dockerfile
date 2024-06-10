@@ -12,4 +12,4 @@ RUN pip install -r requirements.txt
 
 EXPOSE 30000
 
-ENTRYPOINT python3 Charger.py
+ENTRYPOINT python3 EConnection.py

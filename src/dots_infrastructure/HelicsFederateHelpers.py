@@ -1,19 +1,21 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+import multiprocessing
 from typing import List
 import helics as h
 import helics as h
 from esdl import esdl, EnergySystem
 
 from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsFederateInformation, HelicsMessageFederateInformation, SimulatorConfiguration
-from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get_energy_system_from_base64_encoded_esdl_string
+from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get_energy_system_from_base64_encoded_esdl_string, get_model_esdl_object
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure import HelperFunctions
-
+from dots_infrastructure.influxdb_connector import InfluxDBConnector
 
 class HelicsFederateExecutor:
 
-    def __init__(self, simulator_configuration : SimulatorConfiguration):
-        self.simulator_configuration = simulator_configuration
+    def __init__(self):
+        self.simulator_configuration = HelperFunctions.get_simulator_configuration_from_environment()
 
     def destroy_federate(self, fed):
         # Adding extra time request to clear out any pending messages to avoid
@@ -36,8 +38,8 @@ class HelicsFederateExecutor:
         return federate_info
 
 class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
-    def __init__(self, simulator_configuration : SimulatorConfiguration, info : HelicsMessageFederateInformation):
-        super().__init__(simulator_configuration)
+    def __init__(self, info : HelicsMessageFederateInformation):
+        super().__init__()
         self.helics_message_federate_information = info
 
     def init_federate(self):
@@ -51,15 +53,16 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
         esdl_file_base64 = h.helicsMessageGetString(h.helicsEndpointGetMessage(self.message_enpoint))
         self.destroy_federate(self.message_federate)
         
-        return get_energy_system_from_base64_encoded_esdl_string(esdl_file_base64)
+        return esdl_file_base64
 
 class HelicsValueFederateExecutor(HelicsFederateExecutor):
 
-    def __init__(self, simulator_configuration : SimulatorConfiguration, info : HelicsCalculationInformation):
-        super().__init__(simulator_configuration)
+    def __init__(self, info : HelicsCalculationInformation):
+        super().__init__()
         self.input_dict : dict[str, List[CalculationServiceInput]] = {}
         self.output_dict : dict[str, List[CalculationServiceOutput]] = {}
         self.helics_value_federate_info = info
+        self.influx_connector = InfluxDBConnector(self.simulator_configuration.influx_host, self.simulator_configuration.influx_port, self.simulator_configuration.influx_username, self.simulator_configuration.influx_password, self.simulator_configuration.influx_database_name)
 
     def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
         outputs = HelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
@@ -81,19 +84,18 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         for esdl_id in self.simulator_configuration.esdl_ids:
             inputs_for_esdl_object = get_connected_input_esdl_objects(esdl_id, self.simulator_configuration.calculation_services, info.inputs, energy_system)
             inputs.extend(inputs_for_esdl_object)
+            self.input_dict[esdl_id] = inputs_for_esdl_object
 
         for input in inputs:
             sub_key = f'{input.esdl_asset_type}/{input.input_name}/{input.input_esdl_id}'
             LOGGER.info(f"Adding Subscription {sub_key} for esdl id: {input.simulator_esdl_id} ")
             sub = h.helicsFederateRegisterSubscription(value_federate, sub_key, input.input_unit)
             input.helics_input = sub
+            input.helics_sub_key = sub_key
 
-            if input.input_esdl_id in self.input_dict:
-                self.input_dict[input.simulator_esdl_id].append(input)
-            else:
-                self.input_dict[input.simulator_esdl_id] = [input]
+    def init_federate(self, base64_energy_system : str):
 
-    def init_federate(self, energy_system : EnergySystem):
+        energy_system = get_energy_system_from_base64_encoded_esdl_string(base64_energy_system)
         federate_info = self.init_federate_info(self.helics_value_federate_info)
         value_federate = h.helicsCreateValueFederate(f"{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}", federate_info)
 
@@ -101,6 +103,11 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         self.init_outputs(self.helics_value_federate_info, value_federate)
         self.calculation_function = self.helics_value_federate_info.calculation_function
         self.value_federate = value_federate
+        esdl_objects = {}
+        for esdl_id in self.simulator_configuration.esdl_ids:
+            esdl_objects[esdl_id] = get_model_esdl_object(esdl_id, energy_system)
+        self.influx_connector.init_profile_output_data(self.simulator_configuration.simulation_id, self.simulator_configuration.model_id, self.simulator_configuration.esdl_type, esdl_objects)
+        self.influx_connector.connect()
 
     def get_helics_value(self, helics_sub : CalculationServiceInput):
         LOGGER.debug(f"Getting value for subscription: {helics_sub.input_name} with type: {helics_sub.input_type}")
@@ -169,10 +176,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         h.helicsFederateEnterExecutingMode(self.value_federate)
 
         LOGGER.info("Entered HELICS execution mode")
-    
-        hours = 24 * 7 # replace by simulation parameters
-        total_interval = int(60 * 60 * hours) # replace by simulation parameters
+
+        total_interval = self.simulator_configuration.simulation_duration_in_seconds
         update_interval = int(h.helicsFederateGetTimeProperty(self.value_federate, h.HELICS_PROPERTY_TIME_PERIOD))
+        simulator_time = self.simulator_configuration.start_time
         grantedtime = 0
 
         # As long as granted time is in the time range to be simulated...
@@ -180,46 +187,54 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             requested_time = grantedtime + update_interval
             grantedtime = h.helicsFederateRequestTime(self.value_federate, requested_time)
 
+            simulator_time = simulator_time + timedelta(seconds = update_interval) + timedelta(seconds = grantedtime - requested_time)
+
             for esdl_id in self.simulator_configuration.esdl_ids:
                 calculation_params = {}
                 if esdl_id in self.input_dict:
                     inputs = self.input_dict[esdl_id]
                     for helics_input in inputs:
-                        calculation_params[helics_input.input_name] = self.get_helics_value(helics_input)
+                        calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
                 LOGGER.info(f"Executing calculation for esdl_id {esdl_id} at time {grantedtime}")
-                pub_values = self.calculation_function(calculation_params)
+                pub_values = self.calculation_function(calculation_params, simulator_time, esdl_id)
 
                 outputs = self.output_dict[esdl_id]
                 for output in outputs:
                     value_to_publish = pub_values[output.output_name]
                     self.publish_helics_value(output, value_to_publish)
+            LOGGER.info(f"Finished {grantedtime} of {total_interval}")
 
+        self.influx_connector.write_output()
         self.destroy_federate(self.value_federate)
+
+def deploy_federate_in_seperate_process(executor : HelicsValueFederateExecutor, base64_enery_system : str):
+    executor.init_federate(base64_enery_system)
+    executor.start_value_federate()
 
 class HelicsSimulationExecutor:
 
     def __init__(self):
         self.simulator_configuration = HelperFunctions.get_simulator_configuration_from_environment()
-        self.calculations: List[HelicsCalculationInformation] = []
+        self.calculations: List[HelicsValueFederateExecutor] = []
         self.energy_system = None
 
-    def add_calculation(self, info : HelicsCalculationInformation):
-        self.calculations.append(info)
+    def add_calculation(self, executor : HelicsValueFederateExecutor):
+        self.calculations.append(executor)
 
     def init_simulation(self) -> esdl.EnergySystem:
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(self.simulator_configuration, HelicsMessageFederateInformation(60, False, False, True, h.HelicsLogLevel.DEBUG, 'esdl'))
+        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation(60, False, False, True, h.HelicsLogLevel.DEBUG, 'esdl'))
         esdl_message_federate.init_federate()
-        energy_system = esdl_message_federate.wait_for_esdl_file()
+        base64_energy_system = esdl_message_federate.wait_for_esdl_file()
 
-        return energy_system
+        return base64_energy_system
 
     def start_simulation(self):
-        self.energy_system = self.init_simulation()
-        self.executor = ThreadPoolExecutor(max_workers=len(self.calculations))
+        base64_enery_system = self.init_simulation()
+        processes_list : List[multiprocessing.Process] = []
         for calculation in self.calculations:
-            federate_executor = HelicsValueFederateExecutor(self.simulator_configuration, calculation)
-            federate_executor.init_federate(self.energy_system)
-            self.executor.submit(federate_executor.start_value_federate)
-
-    def stop_simulation(self):
-        self.executor.shutdown(True)
+            federate_process = multiprocessing.Process(target = deploy_federate_in_seperate_process, args=[calculation, base64_enery_system])
+            federate_process.start()
+            processes_list.append(federate_process)
+        
+        for federate_process in processes_list:
+            federate_process.join()

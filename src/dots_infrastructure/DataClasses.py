@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List
 import helics as h
 
@@ -12,6 +13,7 @@ class CalculationServiceInput:
     input_unit : str
     input_type : h.HelicsDataType
     simulator_esdl_id : str
+    helics_sub_key : str = ""
     helics_input : h.HelicsInput = None
 
 @dataclass 
@@ -65,4 +67,19 @@ class SimulatorConfiguration:
     model_id : str
     broker_ip : str
     broker_port : int
+    simulation_id : str
+    simulation_duration_in_seconds : int
+    start_time : datetime
+    influx_host : str
+    influx_port : str
+    influx_username : str
+    influx_password : str
+    influx_database_name : str
     calculation_services : List[str]
+
+@dataclass
+class SimulaitonDataPoint:
+    output_name : str
+    datapoint_time : datetime
+    value : float
+    esdl_id : EsdlId

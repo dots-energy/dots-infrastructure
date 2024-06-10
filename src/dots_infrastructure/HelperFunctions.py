@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from typing import List
 
@@ -11,8 +12,17 @@ def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     model_id = os.getenv("model_id", "test-id")
     broker_ip = os.getenv("broker_ip", "127.0.0.1")
     broker_port = int(os.getenv("broker_port", "30000"))
+    start_time_str = str(os.getenv("start_time", "2024-06-10 09:51:13"))
+    simulation_duration_in_seconds = int(os.getenv("simulation_duration_in_seconds", 86400))
+    start_time_datetime = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
     calculation_services = os.getenv("calculation_services")
-    return SimulatorConfiguration(esdl_type, esdl_ids, model_id, broker_ip, broker_port, calculation_services)
+    simulation_id = str(os.getenv("simulation_id", "test-id"))
+    influx_host = os.getenv("INFLUXDB_HOST")
+    influx_port = os.getenv("INFLUXDB_PORT")
+    influx_username = os.getenv("INFLUXDB_USER")
+    influx_password = os.getenv("INFLUXDB_PASSWORD")
+    influx_database_name = os.getenv("INFLUXDB_NAME")
+    return SimulatorConfiguration(esdl_type, esdl_ids, model_id, broker_ip, broker_port,simulation_id, simulation_duration_in_seconds, start_time_datetime, influx_host, influx_port, influx_username, influx_password, influx_database_name, calculation_services)
 
 def generate_publications_from_value_descriptions(value_descriptions : List[PublicationDescription], simulator_configuration : SimulatorConfiguration) -> List[CalculationServiceOutput]:
     ret_val = []
