@@ -15,7 +15,7 @@ def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     start_time_str = str(os.getenv("start_time", "2024-06-10 09:51:13"))
     simulation_duration_in_seconds = int(os.getenv("simulation_duration_in_seconds", 86400))
     start_time_datetime = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
-    calculation_services = os.getenv("calculation_services")
+    calculation_services = os.getenv("calculation_services").split(";")
     simulation_id = str(os.getenv("simulation_id", "test-id"))
     influx_host = os.getenv("INFLUXDB_HOST")
     influx_port = os.getenv("INFLUXDB_PORT")

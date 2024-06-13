@@ -8,9 +8,10 @@ from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor, HelicsValueFederateExecutor
 from dots_infrastructure.Logger import LOGGER
 
-class CalculationServiceEConnectionDispatch(HelicsValueFederateExecutor):
+class CalculationServiceEConnection(HelicsSimulationExecutor):
 
     def __init__(self):
+        super().__init__()
 
         subscriptions_values = [
             SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
@@ -23,19 +24,33 @@ class CalculationServiceEConnectionDispatch(HelicsValueFederateExecutor):
         e_connection_period_in_seconds = 60
 
         calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, h.HelicsLogLevel.DEBUG, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
-        super().__init__(calculation_information)
+        self.add_calculation(calculation_information)
+
+        publication_values = [
+            PublicationDescription(True, "EConnection", "Schedule", "W", h.HelicsDataType.VECTOR)
+        ]
+
+        e_connection_period_in_seconds = 21600
+
+        calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, h.HelicsLogLevel.DEBUG, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
+        self.add_calculation(calculation_information_schedule)
 
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
-        pv_dispatch = HelperFunctions.get_vector_param_with_name(param_dict, "PV_Dispatch")
+        pv_dispatch = HelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
         ret_val = {}
         LOGGER.info(f"Executing e_connection_dispatch with pv dispatch value {pv_dispatch}")
-        ret_val["EConnectionDispatch"] = pv_dispatch[0] * random.randint(1,3)
+        ret_val["EConnectionDispatch"] = pv_dispatch * random.randint(1,3)
+        self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])
+        return ret_val
+    
+    def e_connection_da_schedule(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
+        ret_val = {}
+        ret_val["Schedule"] = [1.0,2.0,3.0]
         self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])
         return ret_val
 
-
 if __name__ == "__main__":
 
-    helics_simulation_executor = HelicsSimulationExecutor()
-    helics_simulation_executor.add_calculation(CalculationServiceEConnectionDispatch())
+    helics_simulation_executor = CalculationServiceEConnection()
     helics_simulation_executor.start_simulation()
+    helics_simulation_executor.stop_simulation()
