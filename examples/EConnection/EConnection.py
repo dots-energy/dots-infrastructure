@@ -5,7 +5,7 @@ import helics as h
 import logging
 from dots_infrastructure import HelperFunctions
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
-from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor, HelicsValueFederateExecutor
+from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor, HelicsCombinationFederateExecutor
 from dots_infrastructure.Logger import LOGGER
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
@@ -23,7 +23,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
 
         e_connection_period_in_seconds = 60
 
-        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, h.HelicsLogLevel.DEBUG, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
+        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
         self.add_calculation(calculation_information)
 
         publication_values = [
@@ -32,7 +32,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
 
         e_connection_period_in_seconds = 21600
 
-        calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, h.HelicsLogLevel.DEBUG, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
+        calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
         self.add_calculation(calculation_information_schedule)
 
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):

@@ -28,9 +28,8 @@ from dots_infrastructure.influxdb_connector import InfluxDBConnector
 class InfluxDBMock(InfluxDBConnector):
     """A connector writes data to an InfluxDB database."""
 
-    def __init__(self, output_file_name):
+    def __init__(self):
         super().__init__("test//test", "test", "test", "test", "test")
-        self.output_file_name = output_file_name
 
     def connect(self) -> InfluxDBClient:
         LOGGER.info("Connecting to influxdb")
@@ -67,9 +66,6 @@ class InfluxDBMock(InfluxDBConnector):
 
     def write_output(self):
         LOGGER.info("write output")
-        with open(self.output_file_name, 'w') as f:
-            for data_point in self.data_points:
-                f.write(f"{data_point.datapoint_time}, {data_point.esdl_id}, {data_point.output_name}, {data_point.value}\n")
 
     def add_measurement(self, points, esdl_id, timestamp, fields):
         LOGGER.info("add measurement")

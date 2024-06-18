@@ -1,10 +1,17 @@
 from datetime import datetime
 import os
+import helics as h
 from typing import List
 
 from dots_infrastructure.DataClasses import CalculationServiceOutput, PublicationDescription, SimulatorConfiguration
 from dots_infrastructure.Logger import LOGGER
 
+log_level_to_helics_log_level = {
+    "debug" : h.HelicsLogLevel.DEBUG,
+    "info" : h.HelicsLogLevel.TRACE,
+    "warning" : h.HelicsLogLevel.WARNING,
+    "error" : h.HelicsLogLevel.ERROR
+}
 
 def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     esdl_ids = os.getenv("esdl_ids", "e1b3dc89-cee8-4f8e-81ce-a0cb6726c17e;f006d594-0743-4de5-a589-a6c2350898da").split(";")
@@ -22,7 +29,9 @@ def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     influx_username = os.getenv("INFLUXDB_USER")
     influx_password = os.getenv("INFLUXDB_PASSWORD")
     influx_database_name = os.getenv("INFLUXDB_NAME")
-    return SimulatorConfiguration(esdl_type, esdl_ids, model_id, broker_ip, broker_port,simulation_id, simulation_duration_in_seconds, start_time_datetime, influx_host, influx_port, influx_username, influx_password, influx_database_name, calculation_services)
+    log_level = os.getenv("log_level", "INFO") 
+    LOGGER.setLevel(log_level.upper())
+    return SimulatorConfiguration(esdl_type, esdl_ids, model_id, broker_ip, broker_port,simulation_id, simulation_duration_in_seconds, start_time_datetime, influx_host, influx_port, influx_username, influx_password, influx_database_name, log_level_to_helics_log_level[log_level], calculation_services)
 
 def generate_publications_from_value_descriptions(value_descriptions : List[PublicationDescription], simulator_configuration : SimulatorConfiguration) -> List[CalculationServiceOutput]:
     ret_val = []

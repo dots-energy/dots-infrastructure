@@ -15,7 +15,7 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
         subscriptions_values = []
 
         pv_installation_period_in_seconds = 30
-        info = HelicsCalculationInformation(pv_installation_period_in_seconds, False, False, True, h.HelicsLogLevel.DEBUG, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
+        info = HelicsCalculationInformation(pv_installation_period_in_seconds, False, False, True, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
         self.add_calculation(info)
 
 

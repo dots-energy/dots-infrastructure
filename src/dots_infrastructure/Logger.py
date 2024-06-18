@@ -1,7 +1,7 @@
 import logging
 
 LOG_LEVEL = 'INFO'
-LOGGER = logging.getLogger('CS-LOgger')
+LOGGER = logging.getLogger('CS-Logger')
 LOGGER.setLevel(LOG_LEVEL)
 
 logging.basicConfig(

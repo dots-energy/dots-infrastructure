@@ -32,7 +32,6 @@ class HelicsFederateInformation:
     uninterruptible : bool
     wait_for_current_time_update : bool
     terminate_on_error : bool
-    log_level : int
 
 @dataclass
 class HelicsMessageFederateInformation(HelicsFederateInformation):
@@ -75,6 +74,7 @@ class SimulatorConfiguration:
     influx_username : str
     influx_password : str
     influx_database_name : str
+    log_level : h.HelicsLogLevel
     calculation_services : List[str]
 
 @dataclass
