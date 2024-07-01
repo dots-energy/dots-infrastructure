@@ -7,23 +7,17 @@ import helics as h
 import helics as h
 from esdl import esdl
 
-from dots_infrastructure.Common import terminate_requested_at_commands_endpoint, terminate_simulation
-from dots_infrastructure.Constants import Command
+from dots_infrastructure.Common import destroy_federate, terminate_requested_at_commands_endpoint, terminate_simulation
 from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsFederateInformation, HelicsMessageFederateInformation, SimulatorConfiguration
 from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get_energy_system_from_base64_encoded_esdl_string, get_model_esdl_object
 from dots_infrastructure.Logger import LOGGER
-from dots_infrastructure import HelperFunctions
+from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.influxdb_connector import InfluxDBConnector
 
 class HelicsFederateExecutor:
 
     def __init__(self):
-        self.simulator_configuration = HelperFunctions.get_simulator_configuration_from_environment()
-
-    def destroy_federate(self, fed):
-        h.helicsFederateDisconnect(fed)
-        h.helicsFederateDestroy(fed)
-        LOGGER.info("Federate finalized")
+        self.simulator_configuration = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment()
 
     def init_federate_info(self, info : HelicsFederateInformation, simulation_config : SimulatorConfiguration):
         federate_info = h.helicsCreateFederateInfo()
@@ -31,6 +25,7 @@ class HelicsFederateExecutor:
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
         h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.time_period_in_seconds)
+        h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_OFFSET, info.offset)
         h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.UNINTERRUPTIBLE, info.uninterruptible)
         h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.WAIT_FOR_CURRENT_TIME_UPDATE, info.wait_for_current_time_update)
         h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFlag.TERMINATE_ON_ERROR, info.terminate_on_error)
@@ -52,7 +47,7 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
         self.message_federate.enter_executing_mode()
         h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME)
         esdl_file_base64 = h.helicsMessageGetString(h.helicsEndpointGetMessage(self.message_enpoint))
-        self.destroy_federate(self.message_federate)
+        destroy_federate(self.message_federate)
         energy_system = get_energy_system_from_base64_encoded_esdl_string(esdl_file_base64)
 
         return energy_system
@@ -66,7 +61,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.helics_value_federate_info = info
 
     def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
-        outputs = HelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
+        outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
         for output in outputs:
             key = f'{output.esdl_asset_type}/{output.output_name}/{output.output_esdl_id}'
             if output.global_flag:
@@ -168,7 +163,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 
     def start_combination_federate(self):
         self.enter_simulation_loop()
-        self.destroy_federate(self.combination_federate)
+        destroy_federate(self.combination_federate)
 
     def enter_simulation_loop(self):
         LOGGER.info("Entering HELICS execution mode")
@@ -218,7 +213,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 class HelicsSimulationExecutor:
 
     def __init__(self):
-        self.simulator_configuration = HelperFunctions.get_simulator_configuration_from_environment()
+        self.simulator_configuration = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment()
         self.calculations: List[HelicsCombinationFederateExecutor] = []
         self.energy_system = None
         self.influx_connector = InfluxDBConnector(self.simulator_configuration.influx_host, self.simulator_configuration.influx_port, self.simulator_configuration.influx_username, self.simulator_configuration.influx_password, self.simulator_configuration.influx_database_name)

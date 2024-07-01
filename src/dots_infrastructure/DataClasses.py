@@ -29,6 +29,7 @@ class CalculationServiceOutput:
 @dataclass
 class HelicsFederateInformation:
     time_period_in_seconds : float
+    offset : int
     uninterruptible : bool
     wait_for_current_time_update : bool
     terminate_on_error : bool

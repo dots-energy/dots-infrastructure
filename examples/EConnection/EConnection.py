@@ -3,7 +3,7 @@ from datetime import datetime
 import random
 import helics as h
 import logging
-from dots_infrastructure import HelperFunctions
+from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor, HelicsCombinationFederateExecutor
 from dots_infrastructure.Logger import LOGGER
@@ -23,7 +23,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
 
         e_connection_period_in_seconds = 60
 
-        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
+        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
         self.add_calculation(calculation_information)
 
         publication_values = [
@@ -32,11 +32,11 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
 
         e_connection_period_in_seconds = 21600
 
-        calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, False, False, True, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
+        calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
         self.add_calculation(calculation_information_schedule)
 
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
-        pv_dispatch = HelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
+        pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
         ret_val = {}
         LOGGER.info(f"Executing e_connection_dispatch with pv dispatch value {pv_dispatch}")
         ret_val["EConnectionDispatch"] = pv_dispatch * random.randint(1,3)

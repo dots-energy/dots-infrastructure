@@ -22,3 +22,7 @@ def terminate_simulation(federate : h.HelicsFederate, commands_message_endpoint 
         if endpoint_name.endswith("commands"):
             h.helicsMessageSetDestination(termination_message, endpoint_name)
             h.helicsEndpointSendMessage(commands_message_endpoint, termination_message)
+
+def destroy_federate(fed):
+    h.helicsFederateDisconnect(fed)
+    h.helicsFederateDestroy(fed)
