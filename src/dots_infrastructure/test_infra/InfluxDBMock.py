@@ -30,6 +30,7 @@ class InfluxDBMock(InfluxDBConnector):
 
     def __init__(self):
         super().__init__("test//test", "test", "test", "test", "test")
+        self.data_points : typing.List[SimulaitonDataPoint] = []
 
     def connect(self) -> InfluxDBClient:
         LOGGER.info("Connecting to influxdb")
@@ -56,7 +57,6 @@ class InfluxDBMock(InfluxDBConnector):
         self.simulation_id = simulation_id
         self.esdl_type = esdl_type
         self.model_id = model_id
-        self.data_points : typing.List[SimulaitonDataPoint] = []
         self.esdl_objects = esdl_objects
 
     def set_time_step_data_point(
