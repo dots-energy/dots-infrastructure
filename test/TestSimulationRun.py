@@ -12,7 +12,7 @@ from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation
 from dots_infrastructure.EsdlHelper import get_energy_system_from_base64_encoded_esdl_string
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
-from infra.InfluxDBMock import InfluxDBMock
+from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
 
 BROKER_TEST_PORT = 23404
 START_DATE_TIME = datetime(2024, 1, 1, 0, 0, 0)
