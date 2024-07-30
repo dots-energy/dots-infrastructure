@@ -2,11 +2,12 @@
 from datetime import datetime
 import random
 import helics as h
-import logging
+
 from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor, HelicsCombinationFederateExecutor
 from dots_infrastructure.Logger import LOGGER
+from esdl.esdl import EnergySystem
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -35,7 +36,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         calculation_information_schedule = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
         self.add_calculation(calculation_information_schedule)
 
-    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
+    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
         pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
         ret_val = {}
         LOGGER.info(f"Executing e_connection_dispatch with pv dispatch value {pv_dispatch}")
@@ -43,7 +44,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])
         return ret_val
     
-    def e_connection_da_schedule(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
+    def e_connection_da_schedule(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         ret_val["Schedule"] = [1.0,2.0,3.0]
         self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])

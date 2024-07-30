@@ -4,6 +4,8 @@ import helics as h
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
+from esdl.esdl import EnergySystem
+
 
 class CalculationServicePVDispatch(HelicsSimulationExecutor):
 
@@ -19,7 +21,7 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
         self.add_calculation(info)
 
 
-    def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId):
+    def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         LOGGER.info(f"Executing pvdispatch_calculation")
         ret_val["PV_Dispatch"] = 0.25 * random.randint(1,20)

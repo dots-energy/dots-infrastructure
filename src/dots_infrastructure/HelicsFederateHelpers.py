@@ -59,6 +59,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.input_dict : dict[str, List[CalculationServiceInput]] = {}
         self.output_dict : dict[str, List[CalculationServiceOutput]] = {}
         self.helics_value_federate_info = info
+        self.energy_system = None
 
     def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
         outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
@@ -98,6 +99,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.init_outputs(self.helics_value_federate_info, combination_federate)
         self.calculation_function = self.helics_value_federate_info.calculation_function
         self.combination_federate = combination_federate
+        self.energy_system = energy_system
 
     def get_helics_value(self, helics_sub : CalculationServiceInput):
         LOGGER.debug(f"Getting value for subscription: {helics_sub.input_name} with type: {helics_sub.input_type}")
@@ -192,7 +194,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
                             calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
                     try:
                         LOGGER.info(f"Executing calculation for esdl_id {esdl_id} at time {grantedtime}")
-                        pub_values = self.calculation_function(calculation_params, simulator_time, esdl_id)
+                        pub_values = self.calculation_function(calculation_params, simulator_time, esdl_id, self.energy_system)
                         LOGGER.info(f"Finished calculation for esdl_id {esdl_id} at time {grantedtime}")
     
                         outputs = self.output_dict[esdl_id]
@@ -200,6 +202,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
                             value_to_publish = pub_values[output.output_name]
                             self.publish_helics_value(output, value_to_publish)
                     except Exception:
+                        LOGGER.info(f"Exception occurred for esdl_id {esdl_id} at time {grantedtime} terminating simulation...")
                         terminate_simulation(self.combination_federate, self.commands_message_enpoint)
                         terminate_requested = True
 
@@ -222,7 +225,7 @@ class HelicsSimulationExecutor:
         self.calculations.append(HelicsCombinationFederateExecutor(info))
 
     def _get_esdl_from_so(self):
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation(60, False, False, True, 'esdl'))
+        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation(60, 60, False, False, True, 'esdl'))
         esdl_message_federate.init_federate()
         energy_system = esdl_message_federate.wait_for_esdl_file()
         return energy_system
