@@ -65,6 +65,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_connection
         super().__init__()
         self.influx_connector = InfluxDBMock()
+        self.calculation_service_initialized = False
 
         subscriptions_values = [
             SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
@@ -87,6 +88,10 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
 
         calculation_information_schedule = HelicsCalculationInformation(e_connection_period_scedule_in_seconds, 0, False, False, True, "EConnectionSchedule", [], publication_values, self.e_connection_da_schedule)
         self.add_calculation(calculation_information_schedule)
+
+    def init_calculation_service(self, energy_system: EnergySystem):
+        self.calculation_service_initialized = True
+        LOGGER.info("init calculation service")
 
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
         pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
@@ -156,6 +161,7 @@ class TestSimulation(unittest.TestCase):
         # Assert
         self.assertEqual(len(cs_econnection.influx_connector.data_points), SIMULATION_DURATION_IN_SECONDS / e_connection_dispatch_period_in_seconds + SIMULATION_DURATION_IN_SECONDS / e_connection_period_scedule_in_seconds)
         self.assertEqual(len(cs_dispatch.influx_connector.data_points), SIMULATION_DURATION_IN_SECONDS / pv_period * 2)
+        self.assertTrue(cs_econnection.calculation_service_initialized)
 
     def test_simulation_run_stops_upon_exception(self):
         # Arrange 

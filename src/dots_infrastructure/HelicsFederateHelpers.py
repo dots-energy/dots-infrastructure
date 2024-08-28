@@ -59,7 +59,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.input_dict : dict[str, List[CalculationServiceInput]] = {}
         self.output_dict : dict[str, List[CalculationServiceOutput]] = {}
         self.helics_value_federate_info = info
-        self.energy_system = None
+        self.energy_system : esdl.EnergySystem = None
 
     def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
         outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
@@ -237,9 +237,13 @@ class HelicsSimulationExecutor:
         self.influx_connector.init_profile_output_data(self.simulator_configuration.simulation_id, self.simulator_configuration.model_id, self.simulator_configuration.esdl_type, esdl_objects)
         self.influx_connector.connect()
 
+    def init_calculation_service(self, energy_system : esdl.EnergySystem):
+        pass
+
     def init_simulation(self) -> esdl.EnergySystem:
         energy_system = self._get_esdl_from_so()
         self._init_influxdb(energy_system)
+        self.init_calculation_service(energy_system)
         return energy_system
 
     def start_simulation(self):
