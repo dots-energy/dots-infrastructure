@@ -1,6 +1,7 @@
 import base64
 from datetime import datetime
 import random
+from threading import Thread
 import unittest
 import helics as h
 import multiprocessing
@@ -134,11 +135,13 @@ class CalculationServiceEConnectionException(HelicsSimulationExecutor):
 class TestSimulation(unittest.TestCase):
 
     def start_broker(self, n_federates):
-        self.broker_process = multiprocessing.Process(target = start_helics_broker, args=[n_federates])
-        self.broker_process.start()
+        self.broker_thread = Thread(target = start_helics_broker, args = (n_federates, ))
+        self.broker_thread .start()
+        # self.broker_process = multiprocessing.Process(target = start_helics_broker, args=[n_federates])
+        # self.broker_process.start()
 
     def stop_broker(self):
-        self.broker_process.join()
+        self.broker_thread.join()
 
     def test_simulation_run_starts_correctly(self):
         # Arrange 
