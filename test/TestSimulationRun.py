@@ -4,12 +4,11 @@ import random
 from threading import Thread
 import unittest
 import helics as h
-import multiprocessing
 
 from unittest.mock import MagicMock
 
 from dots_infrastructure import CalculationServiceHelperFunctions
-from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription
+from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.EsdlHelper import get_energy_system_from_base64_encoded_esdl_string
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
@@ -44,16 +43,18 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
             PublicationDescription(True, "PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
         ]
         subscriptions_values = []
+        self.i = 0
 
         pv_installation_period_in_seconds = 30
         info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
         self.add_calculation(info)
 
 
-    def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
+    def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : int, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         LOGGER.info(f"Executing pvdispatch_calculation")
-        ret_val["PV_Dispatch"] = 0.25 * random.randint(1,20)
+        ret_val["PV_Dispatch"] = self.i
+        self.i += 1
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, ret_val["PV_Dispatch"])
         return ret_val
 
@@ -94,7 +95,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         self.calculation_service_initialized = True
         LOGGER.info("init calculation service")
 
-    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
+    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
         ret_val = {}
         LOGGER.info(f"Executing e_connection_dispatch with pv dispatch value {pv_dispatch}")
@@ -102,7 +103,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])
         return ret_val
     
-    def e_connection_da_schedule(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
+    def e_connection_da_schedule(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         ret_val["Schedule"] = [1.0,2.0,3.0]
         LOGGER.info(f"Executing e_connection_da_schedule")
@@ -129,7 +130,7 @@ class CalculationServiceEConnectionException(HelicsSimulationExecutor):
         calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
         self.add_calculation(calculation_information)
 
-    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, esdl_id : EsdlId, energy_system : EnergySystem):
+    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         Exception("Test-exception")
 
 class TestSimulation(unittest.TestCase):
@@ -137,8 +138,6 @@ class TestSimulation(unittest.TestCase):
     def start_broker(self, n_federates):
         self.broker_thread = Thread(target = start_helics_broker, args = (n_federates, ))
         self.broker_thread .start()
-        # self.broker_process = multiprocessing.Process(target = start_helics_broker, args=[n_federates])
-        # self.broker_process.start()
 
     def stop_broker(self):
         self.broker_thread.join()

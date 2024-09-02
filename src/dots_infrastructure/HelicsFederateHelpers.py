@@ -2,13 +2,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from enum import Enum
 import json
+import math
 from typing import List
 import helics as h
 import helics as h
 from esdl import esdl
 
 from dots_infrastructure.Common import destroy_federate, terminate_requested_at_commands_endpoint, terminate_simulation
-from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsFederateInformation, HelicsMessageFederateInformation, SimulatorConfiguration
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsFederateInformation, HelicsMessageFederateInformation, SimulatorConfiguration, TimeStepInformation
 from dots_infrastructure.EsdlHelper import get_connected_input_esdl_objects, get_energy_system_from_base64_encoded_esdl_string, get_model_esdl_object
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure import CalculationServiceHelperFunctions
@@ -167,6 +168,12 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.enter_simulation_loop()
         destroy_federate(self.combination_federate)
 
+    def compute_time_step_number(self, granted_time : h.HelicsTime, period : int):
+        return int(math.floor(granted_time / period))
+
+    def _get_calculation_service_max_timestamp(self, simulation_duration_in_seconds : int, period : int):
+        return int(math.floor(simulation_duration_in_seconds / period))
+
     def enter_simulation_loop(self):
         LOGGER.info("Entering HELICS execution mode")
         h.helicsFederateEnterExecutingMode(self.combination_federate)
@@ -175,16 +182,18 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 
         total_interval = self.simulator_configuration.simulation_duration_in_seconds
         update_interval = int(h.helicsFederateGetTimeProperty(self.combination_federate, h.HELICS_PROPERTY_TIME_PERIOD))
+        max_time_step_number = self._get_calculation_service_max_timestamp(total_interval, update_interval)
         simulator_time = self.simulator_configuration.start_time
-        grantedtime = 0
+        granted_time = 0
         terminate_requested = False
         # As long as granted time is in the time range to be simulated...
-        while grantedtime < total_interval and not terminate_requested:
-            requested_time = grantedtime + update_interval
-            grantedtime = h.helicsFederateRequestTime(self.combination_federate, requested_time)
+        while granted_time < total_interval and not terminate_requested:
+            requested_time = granted_time + update_interval
+            granted_time = h.helicsFederateRequestTime(self.combination_federate, requested_time)
 
-            simulator_time = simulator_time + timedelta(seconds = update_interval) + timedelta(seconds = grantedtime - requested_time)
-
+            simulator_time = simulator_time + timedelta(seconds = update_interval) + timedelta(seconds = granted_time - requested_time)
+            time_step_number = self.compute_time_step_number(granted_time, update_interval)
+            time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
             for esdl_id in self.simulator_configuration.esdl_ids:
                 if not terminate_requested:
                     calculation_params = {}
@@ -193,20 +202,20 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
                         for helics_input in inputs:
                             calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
                     try:
-                        LOGGER.info(f"Executing calculation for esdl_id {esdl_id} at time {grantedtime}")
-                        pub_values = self.calculation_function(calculation_params, simulator_time, esdl_id, self.energy_system)
-                        LOGGER.info(f"Finished calculation for esdl_id {esdl_id} at time {grantedtime}")
+                        LOGGER.info(f"Executing calculation for esdl_id {esdl_id} at time {granted_time}")
+                        pub_values = self.calculation_function(calculation_params, simulator_time, time_step_information, esdl_id, self.energy_system)
+                        LOGGER.info(f"Finished calculation for esdl_id {esdl_id} at time {granted_time}")
     
                         outputs = self.output_dict[esdl_id]
                         for output in outputs:
                             value_to_publish = pub_values[output.output_name]
                             self.publish_helics_value(output, value_to_publish)
                     except Exception:
-                        LOGGER.info(f"Exception occurred for esdl_id {esdl_id} at time {grantedtime} terminating simulation...")
+                        LOGGER.info(f"Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
                         terminate_simulation(self.combination_federate, self.commands_message_enpoint)
                         terminate_requested = True
 
-            LOGGER.info(f"Finished {grantedtime} of {total_interval} for federate {h.helicsFederateGetName(self.combination_federate)}")
+            LOGGER.info(f"Finished {granted_time} of {total_interval} for federate {h.helicsFederateGetName(self.combination_federate)}")
 
             terminate_requested = terminate_requested_at_commands_endpoint(self.commands_message_enpoint)
 
