@@ -84,3 +84,8 @@ class SimulaitonDataPoint:
     datapoint_time : datetime
     value : float
     esdl_id : EsdlId
+
+@dataclass
+class TimeStepInformation:
+    current_time_step_number : int
+    max_time_step_number : int
