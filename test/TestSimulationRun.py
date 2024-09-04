@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
-from dots_infrastructure.EsdlHelper import get_energy_system_from_base64_encoded_esdl_string
+from dots_infrastructure.EsdlHelper import EsdlHelper
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
@@ -22,7 +22,7 @@ SIMULATION_DURATION_IN_SECONDS = 960
 with open("test.esdl", mode="r") as esdl_file:
     encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
-HelicsSimulationExecutor._get_esdl_from_so = MagicMock(return_value=get_energy_system_from_base64_encoded_esdl_string(encoded_base64_esdl))
+HelicsSimulationExecutor._get_esdl_from_so = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
 
 MS_TO_BROKER_DISCONNECT = 60000
 
