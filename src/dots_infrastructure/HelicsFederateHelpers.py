@@ -1,10 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from enum import Enum
-import json
 import math
 from typing import List
-import helics as h
 import helics as h
 from esdl import esdl
 
@@ -231,6 +228,10 @@ class HelicsSimulationExecutor:
         self.influx_connector = InfluxDBConnector(self.simulator_configuration.influx_host, self.simulator_configuration.influx_port, self.simulator_configuration.influx_username, self.simulator_configuration.influx_password, self.simulator_configuration.influx_database_name)
 
     def add_calculation(self, info : HelicsCalculationInformation):
+        if info.inputs == None:
+            info.inputs = []
+        if info.outputs == None:
+            info.outputs = []
         self.calculations.append(HelicsCombinationFederateExecutor(info))
 
     def _get_esdl_from_so(self):
