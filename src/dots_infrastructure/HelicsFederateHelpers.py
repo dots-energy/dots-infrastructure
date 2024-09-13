@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import math
+import traceback
 from typing import List
 import helics as h
 from esdl import esdl
@@ -209,6 +210,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
                             self.publish_helics_value(output, value_to_publish)
                     except Exception:
                         LOGGER.info(f"Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
+                        traceback.print_exc()
                         terminate_simulation(self.combination_federate, self.commands_message_enpoint)
                         terminate_requested = True
 
