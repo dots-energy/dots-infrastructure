@@ -131,7 +131,7 @@ class CalculationServiceEConnectionException(HelicsSimulationExecutor):
         self.add_calculation(calculation_information)
 
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
-        Exception("Test-exception")
+        raise Exception("Test-exception")
 
 class TestSimulation(unittest.TestCase):
 
