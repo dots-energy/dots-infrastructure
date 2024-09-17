@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import List
 import helics as h
 
+from dots_infrastructure.Constants import TimeRequestType
+
 EsdlId = str
 
 @dataclass
@@ -29,6 +31,7 @@ class CalculationServiceOutput:
 @dataclass
 class HelicsFederateInformation:
     time_period_in_seconds : float
+    time_request_type : TimeRequestType
     offset : int
     uninterruptible : bool
     wait_for_current_time_update : bool
