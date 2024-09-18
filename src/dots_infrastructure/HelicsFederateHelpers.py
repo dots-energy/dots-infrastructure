@@ -106,32 +106,35 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         LOGGER.debug(f"Getting value for subscription: {helics_sub.input_name} with type: {helics_sub.input_type}")
         input_type = helics_sub.input_type
         sub = helics_sub.helics_input
-        if input_type == h.HelicsDataType.BOOLEAN:
-            return h.helicsInputGetBoolean(sub)
-        elif input_type == h.HelicsDataType.COMPLEX_VECTOR:
-            return h.helicsInputGetComplexVector(sub)
-        elif input_type == h.HelicsDataType.DOUBLE:
-            return h.helicsInputGetDouble(sub)
-        elif input_type == h.HelicsDataType.COMPLEX:
-            return h.helicsInputGetComplex(sub)
-        elif input_type == h.HelicsDataType.INT:
-            return h.helicsInputGetInteger(sub)
-        elif input_type == h.HelicsDataType.JSON:
-            return h.helicsInputGetString(sub)
-        elif input_type == h.HelicsDataType.NAMED_POINT:
-            return h.helicsInputGetNamedPoint(sub)
-        elif input_type == h.HelicsDataType.STRING:
-            return h.helicsInputGetString(sub)
-        elif input_type == h.HelicsDataType.RAW:
-            return h.helicsInputGetRawValue(sub)
-        elif input_type == h.HelicsDataType.TIME:
-            return h.helicsInputGetTime(sub)
-        elif input_type == h.HelicsDataType.VECTOR:
-            return h.helicsInputGetVector(sub)
-        elif input_type == h.HelicsDataType.ANY:
-            return h.helicsInputGetBytes(sub)
-        else:
-            raise ValueError("Unsupported Helics Data Type")
+        ret_val = None
+        if h.helicsInputIsUpdated(sub):
+            if input_type == h.HelicsDataType.BOOLEAN:
+                ret_val = h.helicsInputGetBoolean(sub)
+            elif input_type == h.HelicsDataType.COMPLEX_VECTOR:
+                ret_val = h.helicsInputGetComplexVector(sub)
+            elif input_type == h.HelicsDataType.DOUBLE:
+                ret_val = h.helicsInputGetDouble(sub)
+            elif input_type == h.HelicsDataType.COMPLEX:
+                ret_val = h.helicsInputGetComplex(sub)
+            elif input_type == h.HelicsDataType.INT:
+                ret_val = h.helicsInputGetInteger(sub)
+            elif input_type == h.HelicsDataType.JSON:
+                ret_val = h.helicsInputGetString(sub)
+            elif input_type == h.HelicsDataType.NAMED_POINT:
+                ret_val = h.helicsInputGetNamedPoint(sub)
+            elif input_type == h.HelicsDataType.STRING:
+                ret_val = h.helicsInputGetString(sub)
+            elif input_type == h.HelicsDataType.RAW:
+                ret_val = h.helicsInputGetRawValue(sub)
+            elif input_type == h.HelicsDataType.TIME:
+                ret_val = h.helicsInputGetTime(sub)
+            elif input_type == h.HelicsDataType.VECTOR:
+                ret_val = h.helicsInputGetVector(sub)
+            elif input_type == h.HelicsDataType.ANY:
+                ret_val = h.helicsInputGetBytes(sub)
+            else:
+                raise ValueError("Unsupported Helics Data Type")
+        return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
         LOGGER.debug(f"Publishing value: {value} for publication: {helics_output.output_name} with type: {helics_output.output_type}")
@@ -175,6 +178,15 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 
     def _get_calculation_service_max_timestamp(self, simulation_duration_in_seconds : int, period : float):
         return int(math.floor(simulation_duration_in_seconds / period))
+    
+    def _init_calculation_params(self):
+        ret_val = {}
+        for esdl_id in self.simulator_configuration.esdl_ids:
+            if esdl_id in self.input_dict:
+                inputs = self.input_dict[esdl_id]
+                for helics_input in inputs:
+                    ret_val[helics_input.helics_sub_key] = None
+        return ret_val
 
     def enter_simulation_loop(self):
         LOGGER.info(f"Entering HELICS execution mode {self.helics_value_federate_info.calculation_name}")
@@ -187,6 +199,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         max_time_step_number = self._get_calculation_service_max_timestamp(total_interval, update_interval)
         granted_time = 0
         terminate_requested = False
+        calculation_params = self._init_calculation_params()
         while granted_time < total_interval and not terminate_requested:
             requested_time = self._get_request_time(update_interval, granted_time)
             LOGGER.debug(f"Requesting time: {requested_time} for calculation {self.helics_value_federate_info.calculation_name}")
@@ -198,22 +211,24 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
             for esdl_id in self.simulator_configuration.esdl_ids:
                 if not terminate_requested:
-                    calculation_params = {}
                     if esdl_id in self.input_dict:
                         inputs = self.input_dict[esdl_id]
                         for helics_input in inputs:
-                            calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
+                            if calculation_params[helics_input.helics_sub_key] == None:
+                                calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
                     try:
-                        LOGGER.info(f"Executing calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
-                        pub_values = self.helics_value_federate_info.calculation_function(calculation_params, simulator_time, time_step_information, esdl_id, self.energy_system)
-                        LOGGER.info(f"Finished calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
-                        LOGGER.debug(f"Publishing Values: {self.output_dict}")
+                        if CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(calculation_params):
+                            LOGGER.info(f"Executing calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
+                            pub_values = self.helics_value_federate_info.calculation_function(calculation_params, simulator_time, time_step_information, esdl_id, self.energy_system)
+                            LOGGER.info(f"Finished calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
+                            LOGGER.debug(f"Publishing Values: {self.output_dict}")
 
-                        if len(self.helics_value_federate_info.outputs) > 0:
-                            outputs = self.output_dict[esdl_id]
-                            for output in outputs:
-                                value_to_publish = pub_values[output.output_name]
-                                self.publish_helics_value(output, value_to_publish)
+                            if len(self.helics_value_federate_info.outputs) > 0:
+                                outputs = self.output_dict[esdl_id]
+                                for output in outputs:
+                                    value_to_publish = pub_values[output.output_name]
+                                    self.publish_helics_value(output, value_to_publish)
+                            calculation_params = CalculationServiceHelperFunctions.clear_dictionary_values(calculation_params)
                     except Exception:
                         LOGGER.info(f"Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
                         traceback.print_exc()
@@ -223,7 +238,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             LOGGER.info(f"Finished {granted_time} of {total_interval} and terminate requested {terminate_requested} for federate with name {federate_name}")
 
             terminate_requested = Common.terminate_requested_at_commands_endpoint(self.commands_message_enpoint)
-        
+
         LOGGER.info(f"Finalizing federate at {granted_time} of {total_interval} and terminate requested {terminate_requested} with name {federate_name}")
 
     def _get_request_time(self, update_interval, granted_time):
