@@ -265,7 +265,7 @@ class HelicsSimulationExecutor:
         self.calculations.append(HelicsCombinationFederateExecutor(info))
 
     def _get_esdl_from_so(self):
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation(60, 60, False, False, True, 'esdl'))
+        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation(60, TimeRequestType.ON_INPUT, 60, False, False, True, 'esdl'))
         esdl_message_federate.init_federate()
         esdl_helper = esdl_message_federate.wait_for_esdl_file()
         return esdl_helper
