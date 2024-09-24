@@ -12,7 +12,7 @@ from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.Constants import TimeRequestType
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.EsdlHelper import EsdlHelper
-from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
+from dots_infrastructure.HelicsFederateHelpers import HelicsEsdlMessageFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
 from esdl.esdl import EnergySystem
@@ -173,11 +173,14 @@ class TestSimulation(unittest.TestCase):
         with open("test.esdl", mode="r") as esdl_file:
             encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
-        self.get_esdl_from_so = HelicsSimulationExecutor._get_esdl_from_so
-        HelicsSimulationExecutor._get_esdl_from_so = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
+        self.wait_for_esdl_file = HelicsEsdlMessageFederateExecutor.wait_for_esdl_file
+        self.esdl_message_init_federate = HelicsEsdlMessageFederateExecutor.init_federate 
+        HelicsEsdlMessageFederateExecutor.wait_for_esdl_file = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
+        HelicsEsdlMessageFederateExecutor.init_federate = MagicMock()
 
     def tearDown(self):
-        HelicsSimulationExecutor._get_esdl_from_so = self.get_esdl_from_so 
+        HelicsEsdlMessageFederateExecutor.wait_for_esdl_file = self.wait_for_esdl_file 
+        HelicsEsdlMessageFederateExecutor.init_federate = self.esdl_message_init_federate 
 
     def start_broker(self, n_federates):
         self.broker_thread = Thread(target = self.start_helics_broker, args = [ n_federates ])
