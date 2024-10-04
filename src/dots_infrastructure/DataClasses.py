@@ -29,16 +29,7 @@ class CalculationServiceOutput:
     helics_publication : h.HelicsPublication = None
 
 @dataclass
-class HelicsFederateInformation:
-    time_period_in_seconds : float
-    time_request_type : TimeRequestType
-    offset : int
-    uninterruptible : bool
-    wait_for_current_time_update : bool
-    terminate_on_error : bool
-
-@dataclass
-class HelicsMessageFederateInformation(HelicsFederateInformation):
+class HelicsMessageFederateInformation:
     endpoint_name : str
 
 @dataclass
@@ -57,11 +48,18 @@ class PublicationDescription:
     data_type : h.HelicsDataType
 
 @dataclass
-class HelicsCalculationInformation(HelicsFederateInformation):
+class HelicsCalculationInformation:
+    time_period_in_seconds : float
+    offset : int
+    uninterruptible : bool
+    wait_for_current_time_update : bool
+    terminate_on_error : bool
     calculation_name : str
     inputs : List[SubscriptionDescription]
     outputs : List[PublicationDescription]
     calculation_function : any
+    time_delta : float = 0
+    time_request_type : TimeRequestType = TimeRequestType.PERIOD
 
 @dataclass
 class SimulatorConfiguration:

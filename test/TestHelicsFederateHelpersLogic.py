@@ -7,7 +7,7 @@ import helics as h
 
 from dots_infrastructure import CalculationServiceHelperFunctions, Common
 from dots_infrastructure.Constants import TimeRequestType
-from dots_infrastructure.DataClasses import CalculationServiceInput, EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.HelicsFederateHelpers import HelicsCombinationFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 
@@ -79,10 +79,10 @@ class TestLogicAddingCalculations(unittest.TestCase):
 
         # Assert
         self.assertEqual(len(cs_econnection.calculations), 2)
-        self.assertEqual(len(cs_econnection.calculations[0].helics_value_federate_info.inputs), 1)
-        self.assertEqual(len(cs_econnection.calculations[0].helics_value_federate_info.outputs), 0)
-        self.assertEqual(len(cs_econnection.calculations[1].helics_value_federate_info.inputs), 0)
-        self.assertEqual(len(cs_econnection.calculations[1].helics_value_federate_info.outputs), 1)
+        self.assertEqual(len(cs_econnection.calculations[0].helics_combination_federate_info.inputs), 1)
+        self.assertEqual(len(cs_econnection.calculations[0].helics_combination_federate_info.outputs), 0)
+        self.assertEqual(len(cs_econnection.calculations[1].helics_combination_federate_info.inputs), 0)
+        self.assertEqual(len(cs_econnection.calculations[1].helics_combination_federate_info.outputs), 1)
 
 class TestLogicRunningSimulation(unittest.TestCase):
 
@@ -110,7 +110,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
     def test_helics_simulation_loop_started_correctly(self):
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
-                                                                        time_request_type=TimeRequestType.PERIOD,
                                                                         offset=0,
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
@@ -131,7 +130,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
     def test_when_time_request_type_period_helicsFederateRequestTime_called_with_period(self):
         # arrange
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
-                                                                        time_request_type=TimeRequestType.PERIOD,
                                                                         offset=0,
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
@@ -139,19 +137,19 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         calculation_name="EConnectionSchedule", 
                                                                         inputs=[], 
                                                                         outputs=[], 
-                                                                        calculation_function=MagicMock(return_value=5))
+                                                                        calculation_function=MagicMock(return_value=5),
+                                                                        time_delta=0)
         self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
 
         # Execute
         self.federate_executor.enter_simulation_loop()
 
         # Assert
-        h.helicsFederateRequestTime.assert_called_once_with(None, 0)
+        h.helicsFederateRequestTime.assert_called_once_with(None, 5)
 
     def test_when_time_request_type_on_input_helicsFederateRequestTime_called_with_helics_max_time(self):
         # arrange
-        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
-                                                                        time_request_type=TimeRequestType.ON_INPUT,
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=0,
                                                                         offset=0,
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
@@ -159,7 +157,9 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         calculation_name="EConnectionSchedule", 
                                                                         inputs=[], 
                                                                         outputs=[], 
-                                                                        calculation_function=MagicMock(return_value=5))
+                                                                        calculation_function=MagicMock(return_value=5),
+                                                                        time_request_type=TimeRequestType.ON_INPUT,
+                                                                        time_delta=5)
         self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
 
         # Execute
@@ -172,7 +172,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
         calculation_function = MagicMock()
         # arrange
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
-                                                                        time_request_type=TimeRequestType.ON_INPUT,
                                                                         offset=0,
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
@@ -204,7 +203,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
         calculation_function = MagicMock()
         # arrange
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
-                                                                        time_request_type=TimeRequestType.ON_INPUT,
                                                                         offset=0,
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
@@ -234,6 +232,47 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
         # Assert
         calculation_function.assert_called_once_with(param_dict, datetime(2024, 1, 1, 0, 0, 5), TimeStepInformation(1, 1), 'f006d594-0743-4de5-a589-a6c2350898da', None)
+
+    def test_add_calculation_sets_correct_delta_and_period_values(self):
+        calculation_function = MagicMock()
+        # arrange
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionSchedule", 
+                                                                        inputs=[CalculationServiceInput("test-type", "test-input", "test-input-id", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key"),], 
+                                                                        outputs=[], 
+                                                                        calculation_function=calculation_function)
+        
+        calculation_information_dispatch = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionDispatch", 
+                                                                        inputs=[], 
+                                                                        outputs=[CalculationServiceOutput(True, "test-type", "test-output", "test-output-id", h.HelicsDataType.DOUBLE, "W")], 
+                                                                        calculation_function=calculation_function)
+
+        simulation_executor = HelicsSimulationExecutor()
+
+        # Execute
+        simulation_executor.add_calculation(calculation_information_schedule)
+        simulation_executor.add_calculation(calculation_information_dispatch)
+
+        # Assert
+        self.assertEqual(len(simulation_executor.calculations), 2)
+
+        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_request_type, TimeRequestType.ON_INPUT )
+        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_period_in_seconds, 0)
+        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_delta, 5)
+
+        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_request_type, TimeRequestType.PERIOD )
+        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_period_in_seconds, 5)
+        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_delta, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -47,7 +47,9 @@ class EsdlHelper:
         if calc_service_name:
             input_descriptions = [input_description for input_description in input_descriptions if input_description.esdl_type == calc_service_name]
             for input_description in input_descriptions:
-                subscriptions.append(CalculationServiceInput(input_description.esdl_type, input_description.input_name, connected_asset.id, input_description.input_unit, input_description.input_type, simulator_asset.id))
+                new_input = CalculationServiceInput(input_description.esdl_type, input_description.input_name, connected_asset.id, input_description.input_unit, input_description.input_type, simulator_asset.id)
+                new_input.helics_sub_key = f'{new_input.esdl_asset_type}/{new_input.input_name}/{new_input.input_esdl_id}'
+                subscriptions.append(new_input)
     
     def add_calc_services_from_ports(
         self,
