@@ -45,8 +45,8 @@ class EsdlHelper:
         calc_service_name = self.extract_calculation_service_name(calculation_services, connected_asset)
     
         if calc_service_name:
-            input_description = next((input_description for input_description in input_descriptions if input_description.esdl_type == calc_service_name), None)
-            if input_description:
+            input_descriptions = [input_description for input_description in input_descriptions if input_description.esdl_type == calc_service_name]
+            for input_description in input_descriptions:
                 subscriptions.append(CalculationServiceInput(input_description.esdl_type, input_description.input_name, connected_asset.id, input_description.input_unit, input_description.input_type, simulator_asset.id))
     
     def add_calc_services_from_ports(

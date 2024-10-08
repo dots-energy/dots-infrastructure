@@ -63,14 +63,14 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         self.combination_federate : h.HelicsCombinationFederate = None
         self.commands_message_enpoint : h.HelicsEndpoint = None
 
-    def init_outputs(self, info : HelicsCalculationInformation, value_federate : h.HelicsValueFederate):
+    def init_outputs(self, info : HelicsCalculationInformation, combination_federate : h.HelicsCombinationFederate):
         outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(info.outputs, self.simulator_configuration)
         for output in outputs:
             key = f'{output.esdl_asset_type}/{output.output_name}/{output.output_esdl_id}'
             if output.global_flag:
-                pub = h.helicsFederateRegisterGlobalPublication(value_federate, key, output.output_type, output.output_unit)
+                pub = h.helicsFederateRegisterGlobalPublication(combination_federate, key, output.output_type, output.output_unit)
             else:
-                pub = h.helicsFederateRegisterPublication(value_federate, key, output.output_type, output.output_unit)
+                pub = h.helicsFederateRegisterPublication(combination_federate, key, output.output_type, output.output_unit)
             output.helics_publication = pub
             if output.output_esdl_id in self.output_dict:
                 self.output_dict[output.output_esdl_id].append(output)
@@ -86,6 +86,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 
         for input in inputs:
             sub_key = f'{input.esdl_asset_type}/{input.input_name}/{input.input_esdl_id}'
+            LOGGER.debug(f"Subscribing to publication with key: {sub_key}")
             sub = h.helicsFederateRegisterSubscription(combination_federate, sub_key, input.input_unit)
             input.helics_input = sub
             input.helics_sub_key = sub_key
