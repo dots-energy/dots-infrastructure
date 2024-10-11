@@ -8,28 +8,40 @@ from dots_infrastructure.DataClasses import CalculationServiceInput, Subscriptio
 class TestParse(unittest.TestCase):
 
     def setUp(self):
-        with open("test.esdl", mode="r") as esdl_file:
+        with open("test-input-extraction-network.esdl", mode="r") as esdl_file:
             self.encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
-    def test_given_esdl_entity_recevies_subscriptions_from_connected_entities(self):
+    def test_esdl_entity_recevies_subscriptions_from_connected_entities(self):
 
         # Arrange
-        simulator_esdl_id = 'f006d594-0743-4de5-a589-a6c2350898da'
+        simulator_esdl_id = '7415cddb-b735-4646-b772-47f101b5c7a8'
 
         esdl_helper = EsdlHelper(self.encoded_base64_esdl)
 
         subscription_descriptions = [
-            SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE),
+            SubscriptionDescription(esdl_type="ElectricityDemand",input_name="active_power",input_unit="W",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="ElectricityDemand",input_name="reactive_power",input_unit="VAr",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="PVInstallation",input_name="potential_active_power",input_unit="W",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="HybridHeatPump",input_name="buffer_temperature",input_unit="K",input_type=h.HelicsDataType.DOUBLE),
+            SubscriptionDescription(esdl_type="HybridHeatPump",input_name="house_temperatures",input_unit="K",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="EVChargingStation",input_name="state_of_charge_ev",input_unit="J",input_type=h.HelicsDataType.DOUBLE)
         ]
 
         expected_input_descriptions = [
-            CalculationServiceInput("PVInstallation", "PV_Dispatch", '176af591-6d9d-4751-bb0f-fac7e99b1c3d', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch/176af591-6d9d-4751-bb0f-fac7e99b1c3d"),
-            CalculationServiceInput("PVInstallation", "PV_Dispatch", 'b8766109-5328-416f-9991-e81a5cada8a6', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch/b8766109-5328-416f-9991-e81a5cada8a6")
+            CalculationServiceInput("ElectricityDemand", "active_power", '5ad97622-7226-40b1-a163-260b3478b1e3', "W", h.HelicsDataType.VECTOR, simulator_esdl_id, "ElectricityDemand/active_power/5ad97622-7226-40b1-a163-260b3478b1e3"),
+            CalculationServiceInput("ElectricityDemand", "reactive_power", '5ad97622-7226-40b1-a163-260b3478b1e3', "VAr", h.HelicsDataType.VECTOR, simulator_esdl_id, "ElectricityDemand/reactive_power/5ad97622-7226-40b1-a163-260b3478b1e3"),
+            CalculationServiceInput("PVInstallation", "potential_active_power", '208c4a92-148a-4893-b474-37cad47b2fcb', "W", h.HelicsDataType.VECTOR, simulator_esdl_id, "PVInstallation/potential_active_power/208c4a92-148a-4893-b474-37cad47b2fcb"),
+            CalculationServiceInput("EVChargingStation", "state_of_charge_ev", '2c285e74-f018-4305-bdf5-dd0f49fcbeab', "J", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EVChargingStation/state_of_charge_ev/2c285e74-f018-4305-bdf5-dd0f49fcbeab"),
+            CalculationServiceInput("HybridHeatPump", "buffer_temperature", '15bc27e8-97db-427c-959e-e2a2fca27f75', "K", h.HelicsDataType.DOUBLE, simulator_esdl_id, "HybridHeatPump/buffer_temperature/15bc27e8-97db-427c-959e-e2a2fca27f75"),
+            CalculationServiceInput("HybridHeatPump", "house_temperatures", '15bc27e8-97db-427c-959e-e2a2fca27f75', "K", h.HelicsDataType.VECTOR, simulator_esdl_id, "HybridHeatPump/house_temperatures/15bc27e8-97db-427c-959e-e2a2fca27f75")
         ]
 
         calculation_services = [
+            "ElectricityDemand",
             "PVInstallation",
-            "EnergyMarket"
+            "EVChargingStation",
+            "HeatPump",
+            "HybridHeatPump"
         ]
 
         # Execute
@@ -38,8 +50,8 @@ class TestParse(unittest.TestCase):
         # Assert correct assets are extracted from esdl file
         self.assertListEqual(expected_input_descriptions, inputs)
 
-    def test_given_esdl_entity_can_subscribe_to_non_connected_inputs(self):
-        simulator_esdl_id = 'f006d594-0743-4de5-a589-a6c2350898da'
+    def test_esdl_entity_can_subscribe_to_non_connected_inputs(self):
+        simulator_esdl_id = '7415cddb-b735-4646-b772-47f101b5c7a8'
 
         esdl_helper = EsdlHelper(self.encoded_base64_esdl)
 
@@ -48,7 +60,7 @@ class TestParse(unittest.TestCase):
         ]
 
         expected_input_descriptions = [
-            CalculationServiceInput("EnergyMarket", "DA_Price", 'b612fc89-a752-4a30-84bb-81ebffc56b50', "EUR", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EnergyMarket/DA_Price/b612fc89-a752-4a30-84bb-81ebffc56b50")
+            CalculationServiceInput("EnergyMarket", "DA_Price", '80f75d42-80a8-446e-8611-cb24154f2bd5', "EUR", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EnergyMarket/DA_Price/80f75d42-80a8-446e-8611-cb24154f2bd5")
         ]
 
         calculation_services = [
@@ -61,11 +73,11 @@ class TestParse(unittest.TestCase):
         # Assert correct assets are extracted from esdl file
         self.assertListEqual(expected_input_descriptions, inputs)
 
-    def test_given_esdl_entity_has_two_publications_then_connected_entity_can_subscribe_to_both(self):
+    def test_esdl_entity_has_two_publications_then_connected_entity_can_subscribe_to_both(self):
 
         # Arrange
 
-        simulator_esdl_id = 'f006d594-0743-4de5-a589-a6c2350898da'
+        simulator_esdl_id = '7415cddb-b735-4646-b772-47f101b5c7a8'
 
         esdl_helper = EsdlHelper(self.encoded_base64_esdl)
 
@@ -75,10 +87,8 @@ class TestParse(unittest.TestCase):
         ]
 
         expected_input_descriptions = [
-            CalculationServiceInput("PVInstallation", "PV_Dispatch", '176af591-6d9d-4751-bb0f-fac7e99b1c3d', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch/176af591-6d9d-4751-bb0f-fac7e99b1c3d"),
-            CalculationServiceInput("PVInstallation", "PV_Dispatch2", '176af591-6d9d-4751-bb0f-fac7e99b1c3d', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch2/176af591-6d9d-4751-bb0f-fac7e99b1c3d"),
-            CalculationServiceInput("PVInstallation", "PV_Dispatch", 'b8766109-5328-416f-9991-e81a5cada8a6', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch/b8766109-5328-416f-9991-e81a5cada8a6"),
-            CalculationServiceInput("PVInstallation", "PV_Dispatch2", 'b8766109-5328-416f-9991-e81a5cada8a6', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch2/b8766109-5328-416f-9991-e81a5cada8a6"),
+            CalculationServiceInput("PVInstallation", "PV_Dispatch", '208c4a92-148a-4893-b474-37cad47b2fcb', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch/208c4a92-148a-4893-b474-37cad47b2fcb"),
+            CalculationServiceInput("PVInstallation", "PV_Dispatch2", '208c4a92-148a-4893-b474-37cad47b2fcb', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "PVInstallation/PV_Dispatch2/208c4a92-148a-4893-b474-37cad47b2fcb")
         ]
 
         calculation_services = [
@@ -91,9 +101,9 @@ class TestParse(unittest.TestCase):
         # Assert correct assets are extracted from esdl file
         self.assertListEqual(expected_input_descriptions, inputs)
 
-    def test_given_non_energy_entity_subscriptions_are_correctly_extracted(self):
+    def test_non_energy_entity_subscriptions_are_correctly_extracted(self):
         # Arrange
-        simulator_esdl_id = '02fafa20-a1bd-488e-a4db-f3c0ca7ff51a'
+        simulator_esdl_id = '06c59a5e-aa84-4a4d-90db-56fbe4eb266c'
 
         esdl_helper = EsdlHelper(self.encoded_base64_esdl)
 
@@ -102,7 +112,19 @@ class TestParse(unittest.TestCase):
         ]
 
         expected_input_descriptions = [
-            CalculationServiceInput("EConnection", "EConnectionDispatch", 'f006d594-0743-4de5-a589-a6c2350898da', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/f006d594-0743-4de5-a589-a6c2350898da")
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '7415cddb-b735-4646-b772-47f101b5c7a8', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/7415cddb-b735-4646-b772-47f101b5c7a8"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'fd7fc047-30b1-48e3-99d9-1bc882772170', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/fd7fc047-30b1-48e3-99d9-1bc882772170"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '8f155685-c164-4d0c-ad3f-3419f4b97c82', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/8f155685-c164-4d0c-ad3f-3419f4b97c82"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '1f776d2a-ea5b-43e1-94a1-aac7e8381e41', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/1f776d2a-ea5b-43e1-94a1-aac7e8381e41"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '8e43e731-e4a4-46ac-a5b0-7aec5031878b', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/8e43e731-e4a4-46ac-a5b0-7aec5031878b"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'f10ff819-1d81-4cc7-82dc-b02ffbc60bfc', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/f10ff819-1d81-4cc7-82dc-b02ffbc60bfc"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '221c77de-74f8-4293-bb4e-2dd39dee1acd', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/221c77de-74f8-4293-bb4e-2dd39dee1acd"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '18f85d6d-6051-4cdf-ab4c-e80a404e3c74', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/18f85d6d-6051-4cdf-ab4c-e80a404e3c74"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", '891c0abb-f6e8-4eb3-9045-d6c87120d281', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/891c0abb-f6e8-4eb3-9045-d6c87120d281"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'a6c6d5d0-ca19-4579-85f9-8fd99f77aaf3', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/a6c6d5d0-ca19-4579-85f9-8fd99f77aaf3"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'e69bae01-d2db-4829-bbb7-71148ead969b', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/e69bae01-d2db-4829-bbb7-71148ead969b"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'c569d7a1-d2d7-4c05-8e31-c641ea48e9ff', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/c569d7a1-d2d7-4c05-8e31-c641ea48e9ff"),
+            CalculationServiceInput("EConnection", "EConnectionDispatch", 'b2c3bb3b-0b40-4bc2-975c-cd648fe03065', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "EConnection/EConnectionDispatch/b2c3bb3b-0b40-4bc2-975c-cd648fe03065")
         ]
 
         calculation_services = [
