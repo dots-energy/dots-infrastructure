@@ -14,7 +14,7 @@ from dots_infrastructure.Logger import LOGGER
 LOGGER.disabled = True
 
 def simulator_environment_e_logic_test():
-    return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"])
+    return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"], 0.02)
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -187,6 +187,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
             CalculationServiceInput("test-type2", "test-input2", "test-input-id2", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key2")
         ]
         self.federate_executor.input_dict["f006d594-0743-4de5-a589-a6c2350898da"] = inputs
+        self.federate_executor.all_inputs = inputs
 
         def helics_value_side_effect(value):
             return 5 if value == inputs[0] else None
@@ -220,6 +221,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
             CalculationServiceInput("test-type2", "test-input2", "test-input-id2", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key2")
         ]
         self.federate_executor.input_dict["f006d594-0743-4de5-a589-a6c2350898da"] = inputs
+        self.federate_executor.all_inputs = inputs
 
         self.federate_executor.get_helics_value = MagicMock(return_value=5)
         param_dict = {

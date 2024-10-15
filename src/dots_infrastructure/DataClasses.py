@@ -78,6 +78,7 @@ class SimulatorConfiguration:
     influx_database_name : str
     log_level : h.HelicsLogLevel
     calculation_services : List[str]
+    time_step_time_out_minutes : float
 
 @dataclass
 class SimulaitonDataPoint:

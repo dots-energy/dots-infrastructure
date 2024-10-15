@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import math
+import time
 import traceback
 from typing import List
 import helics as h
@@ -58,10 +59,13 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
 
 class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
 
+    WAIT_FOR_INPUT_ITERATION_DURATION_SECONDS = 0.002
+
     def __init__(self, info : HelicsCalculationInformation):
         super().__init__()
         self.input_dict : dict[str, List[CalculationServiceInput]] = {}
         self.output_dict : dict[str, List[CalculationServiceOutput]] = {}
+        self.all_inputs : List[CalculationServiceInput] = []
         self.helics_combination_federate_info = info
         self.energy_system : esdl.EnergySystem = None
         self.combination_federate : h.HelicsCombinationFederate = None
@@ -93,11 +97,12 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             LOGGER.debug(f"[{self.combination_federate.name}] Subscribing to publication with key: {input.helics_sub_key}")
             sub = h.helicsFederateRegisterSubscription(combination_federate, input.helics_sub_key, input.input_unit)
             input.helics_input = sub
+            if input not in self.all_inputs:
+                self.all_inputs.append(input)
 
         self.commands_message_enpoint = h.helicsFederateRegisterEndpoint(combination_federate, "commands")
 
     def remove_duplicate_subscriptions_and_update_inputs(self, inputs : List[CalculationServiceInput], inputs_for_esdl_object : List[CalculationServiceInput]):
-        to_remove = []
         for i, new_input in enumerate(inputs_for_esdl_object):
             existing_input = next((input for input in inputs if input.helics_sub_key == new_input.helics_sub_key), None)
             if existing_input:
@@ -205,11 +210,19 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
     def _init_calculation_params(self):
         ret_val = {}
         for esdl_id in self.simulator_configuration.esdl_ids:
+            ret_val[esdl_id] = {} 
+        for esdl_id in self.simulator_configuration.esdl_ids:
             if esdl_id in self.input_dict:
                 inputs = self.input_dict[esdl_id]
                 for helics_input in inputs:
-                    ret_val[helics_input.helics_sub_key] = None
+                    ret_val[esdl_id][helics_input.helics_sub_key] = None
         return ret_val
+    
+    def _init_input_dict(self):
+        input_dict = {}
+        for input in self.all_inputs:
+            input_dict[input.helics_sub_key] = None
+        return input_dict
 
     def _publish_outputs(self, esdl_id, pub_values):
         if len(self.helics_combination_federate_info.outputs) > 0:
@@ -218,12 +231,17 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
                 value_to_publish = pub_values[output.output_name]
                 self.publish_helics_value(output, value_to_publish)
 
-    def _gather_new_inputs(self, calculation_params, esdl_id):
-        if esdl_id in self.input_dict:
-            inputs = self.input_dict[esdl_id]
-            for helics_input in inputs:
-                if calculation_params[helics_input.helics_sub_key] == None:
-                    calculation_params[helics_input.helics_sub_key] = self.get_helics_value(helics_input)
+    def _gather_new_inputs(self, calculation_params, input_dict):
+        for input in self.all_inputs:
+            if input_dict[input.helics_sub_key] == None:
+                input_dict[input.helics_sub_key] = self.get_helics_value(input)
+
+        for esdl_id in self.simulator_configuration.esdl_ids:
+            if esdl_id in self.input_dict.keys():
+                inputs = self.input_dict[esdl_id]
+                for helics_input in inputs:
+                    if calculation_params[esdl_id][helics_input.helics_sub_key] == None:
+                        calculation_params[esdl_id][helics_input.helics_sub_key] = input_dict[helics_input.helics_sub_key]
 
     def _get_request_time(self, granted_time):
         if self.helics_combination_federate_info.time_request_type == TimeRequestType.PERIOD:
@@ -231,6 +249,24 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
         if self.helics_combination_federate_info.time_request_type == TimeRequestType.ON_INPUT:
             requested_time = h.HELICS_TIME_MAXTIME
         return requested_time
+    
+    def _gather_all_required_inputs(self, calculation_params):
+        LOGGER.debug(f"[{h.helicsFederateGetName(self.combination_federate)}] Gathering all inputs")
+        terminate_requested = False
+        input_dict = self._init_input_dict()
+        max_amount_of_waiting_iterations = math.ceil(self.simulator_configuration.time_step_time_out_minutes * 60 / self.WAIT_FOR_INPUT_ITERATION_DURATION_SECONDS)
+        waiting_iterations = 0
+        self._gather_new_inputs(calculation_params, input_dict)
+        while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict) and not terminate_requested:
+            waiting_iterations += 1
+            time.sleep(self.WAIT_FOR_INPUT_ITERATION_DURATION_SECONDS)
+            terminate_requested = Common.terminate_requested_at_commands_endpoint(self.commands_message_enpoint)
+            self._gather_new_inputs(calculation_params, input_dict)
+            if max_amount_of_waiting_iterations == waiting_iterations:
+                LOGGER.error("Timeout reached for getting all required values for esdl_id")
+                Common.terminate_simulation(self.combination_federate, self.commands_message_enpoint)
+                terminate_requested = True
+        return terminate_requested
 
     def enter_simulation_loop(self):
         LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Entering HELICS execution mode {self.helics_combination_federate_info.calculation_name}")
@@ -252,26 +288,28 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             simulator_time = self.simulator_configuration.start_time + timedelta(seconds = granted_time)
             time_step_number = self._compute_time_step_number(granted_time)
             time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
+            if h.helicsFederateGetName(self.combination_federate) == "Mock-Econnection/EConnectionSchedule":
+                hoi = 5
+            terminate_requested = self._gather_all_required_inputs(calculation_params)
 
             for esdl_id in self.simulator_configuration.esdl_ids:
-                if not terminate_requested:
-                    self._gather_new_inputs(calculation_params, esdl_id)
-                    try:
-                        if CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(calculation_params):
-                            LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Executing calculation {self.helics_combination_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
-                            pub_values = self.helics_combination_federate_info.calculation_function(calculation_params, simulator_time, time_step_information, esdl_id, self.energy_system)
-                            LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Finished calculation {self.helics_combination_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
-                            self._publish_outputs(esdl_id, pub_values)
-                            calculation_params = CalculationServiceHelperFunctions.clear_dictionary_values(calculation_params)
-                    except Exception:
-                        LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
-                        traceback.print_exc()
-                        Common.terminate_simulation(self.combination_federate, self.commands_message_enpoint)
-                        terminate_requested = True
+                try:
+                    if not terminate_requested:
+                        LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Executing calculation {self.helics_combination_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
+                        pub_values = self.helics_combination_federate_info.calculation_function(calculation_params[esdl_id], simulator_time, time_step_information, esdl_id, self.energy_system)
+                        LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Finished calculation {self.helics_combination_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
+                        self._publish_outputs(esdl_id, pub_values)
+                        calculation_params[esdl_id] = CalculationServiceHelperFunctions.clear_dictionary_values(calculation_params[esdl_id])
+                except Exception:
+                    LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
+                    traceback.print_exc()
+                    Common.terminate_simulation(self.combination_federate, self.commands_message_enpoint)
+                    terminate_requested = True
 
             LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Finished {granted_time} of {total_interval} and terminate requested {terminate_requested}")
 
-            terminate_requested = Common.terminate_requested_at_commands_endpoint(self.commands_message_enpoint)
+            if not terminate_requested:
+                terminate_requested = Common.terminate_requested_at_commands_endpoint(self.commands_message_enpoint)
 
         LOGGER.info(f"[{h.helicsFederateGetName(self.combination_federate)}] Finalizing federate at {granted_time} of {total_interval} and terminate requested {terminate_requested}")
 
