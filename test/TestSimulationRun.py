@@ -27,12 +27,11 @@ INFLUX_DB_NAME = "test-database-name"
 INFLUX_HOST = "test-host"
 SIMULATION_ID = "test-id"
 BROKER_IP = "127.0.0.1"
-TIMESTEP_TIMEOUT_IN_MINUTES = 15
 
 MS_TO_BROKER_DISCONNECT = 60000
 
 def simulator_environment_e_pv():
-    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
+    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServicePVDispatch(HelicsSimulationExecutor):
 
@@ -51,7 +50,8 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
         self.influx_connector = InfluxDBMock()
         publictations_values = []
         subscriptions_values = [
-            SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+            SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE),
+            SubscriptionDescription("EnergyMarket", "Price", "EUR", h.HelicsDataType.DOUBLE)
         ]
         pv_installation_period_in_seconds = 60
         info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "process_econnection_dispatch", subscriptions_values, publictations_values, self.process_econnection_dispatch)
@@ -92,7 +92,7 @@ class CalculationServicePVDispatchMultipleOutputs(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_energy_market():
-    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
+    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceMarketService(HelicsSimulationExecutor):
 
@@ -103,13 +103,13 @@ class CalculationServiceMarketService(HelicsSimulationExecutor):
         self.calculation_service_initialized = False
 
         publication_values = [
-            PublicationDescription(True, "EnergyMarket", "Price", "EUR", h.HelicsDataType.DOUBLE)
+            PublicationDescription(True, "EnergyMarket", "Price", "EUR", h.HelicsDataType.DOUBLE),
         ]
 
         energy_market_period_in_seconds = 60
 
         calculation_information = HelicsCalculationInformation(energy_market_period_in_seconds, 0, False, False, True, "MarketPrice", None, publication_values, self.energy_market_price)
-        
+
         self.add_calculation(calculation_information)
 
     def energy_market_price(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
@@ -118,7 +118,7 @@ class CalculationServiceMarketService(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_connection():
-    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
+    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -136,7 +136,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
             PublicationDescription(True, "EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
         ]
 
-        e_connection_period_in_seconds = 60
+        e_connection_period_in_seconds = 30
 
         calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values_dispatch, publication_values_dispatch, self.e_connection_dispatch)
         self.add_calculation(calculation_information)
@@ -157,6 +157,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
         ret_val = {}
+        time.sleep(1)
         ret_val["EConnectionDispatch"] = pv_dispatch
         self.influx_connector.set_time_step_data_point(esdl_id, "EConnectionDispatch", simulation_time, ret_val["EConnectionDispatch"])
         return ret_val
@@ -170,7 +171,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_commonity():
-    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
+    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceElectricityCommodity(HelicsSimulationExecutor):
     def __init__(self):
@@ -216,33 +217,10 @@ class CalculationServiceMultiplePvInputsEConnection(HelicsSimulationExecutor):
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch2", simulation_time, pv_dispatch2)
         return ret_val
 
-class CalculationServiceEConnectionException(HelicsSimulationExecutor):
-
-    def __init__(self):
-        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_connection
-        super().__init__()
-        self.influx_connector = InfluxDBMock()
-
-        subscriptions_values = [
-            SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
-        ]
-
-        publication_values = [
-            PublicationDescription(True, "EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
-        ]
-
-        e_connection_period_in_seconds = 60
-
-        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
-        self.add_calculation(calculation_information)
-
-    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
-        raise Exception("Test-exception")
-
 class TestSimulation(unittest.TestCase):
 
     def start_helics_broker(self, federates):
-        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s'")
+        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime")
         broker.wait_for_disconnect(MS_TO_BROKER_DISCONNECT)
 
     def setUp(self):
@@ -295,10 +273,10 @@ class TestSimulation(unittest.TestCase):
         # Arrange 
         self.start_broker(6)
 
-        e_connection_dispatch_period_in_seconds = 60
+        e_connection_dispatch_period_in_seconds = 30
         e_connection_period_scedule_in_seconds = 60
         pv_period = 30
-        expected_data_point_values_dispatch = [i * 2.0 for i in range(1, 3)]
+        expected_data_point_values_dispatch = [i for i in range(1, 5)]
         expected_data_point_values_loadflow = expected_data_point_values_dispatch
         expected_data_point_values_schedule = [[i * 2.0 * i, i * 2.0 * i, i * 2.0 * i] for i in range(1, 3)]
 
