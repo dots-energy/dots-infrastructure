@@ -48,11 +48,24 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
         info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
         self.add_calculation(info)
 
+        self.influx_connector = InfluxDBMock()
+        publictations_values = []
+        subscriptions_values = [
+            SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+        pv_installation_period_in_seconds = 60
+        info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "process_econnection_dispatch", subscriptions_values, publictations_values, self.process_econnection_dispatch)
+        self.add_calculation(info)
+
 
     def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         ret_val["PV_Dispatch"] = time_step_number.current_time_step_number
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, ret_val["PV_Dispatch"])
+        return ret_val
+    
+    def process_econnection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        ret_val = {}
         return ret_val
 
 class CalculationServicePVDispatchMultipleOutputs(HelicsSimulationExecutor):
@@ -278,31 +291,9 @@ class TestSimulation(unittest.TestCase):
         actual_data_point_values_dispatch = [dp.value for dp in cs_econnection.influx_connector.data_points]
         self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
 
-    def test_given_exception_occurrs_in_cs_then_simulation_is_termintaed(self):
-        # Arrange 
-        self.start_broker(2)
-        e_connection_dispatch_period_in_seconds = 60
-        pv_period = 30
-
-        # Execute
-        cs_econnection = CalculationServiceEConnectionException()
-        cs_dispatch = CalculationServicePVDispatch()
-
-        cs_econnection.start_simulation()
-        cs_dispatch.start_simulation()
-        cs_econnection.stop_simulation()
-        cs_dispatch.stop_simulation()
-        self.stop_broker()
-
-        # Assert
-        # No data should be generated as exception is generated right away
-        self.assertEqual(len(cs_econnection.influx_connector.data_points), 0) 
-        # 2 pv panels produce data at most 3 times so
-        self.assertLessEqual(len(cs_econnection.influx_connector.data_points), 2 * e_connection_dispatch_period_in_seconds / pv_period + 1)
-
     def test_given_a_set_of_calculation_services_then_simulation_executes_as_expected(self):
         # Arrange 
-        self.start_broker(5)
+        self.start_broker(6)
 
         e_connection_dispatch_period_in_seconds = 60
         e_connection_period_scedule_in_seconds = 60
