@@ -10,7 +10,7 @@ from esdl import esdl
 
 from dots_infrastructure import Common
 from dots_infrastructure.Constants import TimeRequestType
-from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsMessageFederateInformation, PublicationDescription, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsMessageFederateInformation, PublicationDescription, RunningStatus, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.EsdlHelper import EsdlHelper
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure import CalculationServiceHelperFunctions
@@ -70,6 +70,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         self.helics_value_federate_info = info
         self.energy_system : esdl.EnergySystem = None
         self.value_federate : h.HelicsValueFederate = None
+        self.running_status = RunningStatus()
 
     def init_outputs(self, pubs : List[PublicationDescription], value_federate : h.HelicsValueFederate):
         outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(pubs, self.simulator_configuration)
@@ -187,6 +188,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
 
     def finalize_simulation(self):
         Common.destroy_federate(self.value_federate)
+        self.running_status.terminated = True
 
     def start_value_federate(self):
         self.enter_simulation_loop()
@@ -290,6 +292,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
                     LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Exception occurred for esdl_id {esdl_id} at time {granted_time} terminating simulation...")
                     traceback.print_exc()
                     terminate_requested = True
+                    self.running_status.exception = True
 
             LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Finished {granted_time} of {total_interval} and terminate requested {terminate_requested}")
 
@@ -340,7 +343,13 @@ class HelicsSimulationExecutor:
         for calculation in self.calculations:
             self.exe.submit(calculation.initialize_and_start_federate, esdl_helper)
 
+        while all([calculation.running_status.terminated for calculation in self.calculations]):
+            time.sleep(0.5)
+
     def stop_simulation(self):
         self.exe.shutdown()
         LOGGER.debug(f"Writing data to influx for calculation service {self.simulator_configuration.model_id}")
         self.influx_connector.write_output()
+        if any([calculation.running_status.exception for calculation in self.calculations]):
+            failed_calulation = next((calculation for calculation in self.calculations if calculation.running_status.exception == True), None)
+            raise RuntimeError(f"Calculation service had an exception calculation: {failed_calulation.helics_value_federate_info.calculation_name} failed")
