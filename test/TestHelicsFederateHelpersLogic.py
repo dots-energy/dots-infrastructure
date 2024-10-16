@@ -8,13 +8,13 @@ import helics as h
 from dots_infrastructure import CalculationServiceHelperFunctions, Common
 from dots_infrastructure.Constants import TimeRequestType
 from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
-from dots_infrastructure.HelicsFederateHelpers import HelicsCombinationFederateExecutor, HelicsSimulationExecutor
+from dots_infrastructure.HelicsFederateHelpers import HelicsValueFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 
 LOGGER.disabled = True
 
 def simulator_environment_e_logic_test():
-    return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"])
+    return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"], 0.02)
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -79,22 +79,20 @@ class TestLogicAddingCalculations(unittest.TestCase):
 
         # Assert
         self.assertEqual(len(cs_econnection.calculations), 2)
-        self.assertEqual(len(cs_econnection.calculations[0].helics_combination_federate_info.inputs), 1)
-        self.assertEqual(len(cs_econnection.calculations[0].helics_combination_federate_info.outputs), 0)
-        self.assertEqual(len(cs_econnection.calculations[1].helics_combination_federate_info.inputs), 0)
-        self.assertEqual(len(cs_econnection.calculations[1].helics_combination_federate_info.outputs), 1)
+        self.assertEqual(len(cs_econnection.calculations[0].helics_value_federate_info.inputs), 1)
+        self.assertEqual(len(cs_econnection.calculations[0].helics_value_federate_info.outputs), 0)
+        self.assertEqual(len(cs_econnection.calculations[1].helics_value_federate_info.inputs), 0)
+        self.assertEqual(len(cs_econnection.calculations[1].helics_value_federate_info.outputs), 1)
 
 class TestLogicRunningSimulation(unittest.TestCase):
 
     def setUp(self):
         self.federate_get_name = h.helicsFederateGetName
-        self.common_terminate_requested = Common.terminate_requested_at_commands_endpoint
         self.get_sim_config_from_env = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment 
         self.fed_eneter_executing_mode = h.helicsFederateEnterExecutingMode
         self.get_time_property = h.helicsFederateGetTimeProperty 
         self.request_time = h.helicsFederateRequestTime 
         h.helicsFederateGetName = MagicMock(return_value = "LogicTest")
-        Common.terminate_requested_at_commands_endpoint = MagicMock()
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
         h.helicsFederateEnterExecutingMode = MagicMock()
         h.helicsFederateGetTimeProperty = MagicMock(return_value = 5)
@@ -102,7 +100,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
     def tearDown(self):
         h.helicsFederateGetName = self.federate_get_name
-        Common.terminate_requested_at_commands_endpoint = self.common_terminate_requested
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = self.get_sim_config_from_env 
         h.helicsFederateEnterExecutingMode = self.fed_eneter_executing_mode
         h.helicsFederateGetTimeProperty = self.get_time_property
@@ -118,7 +115,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         inputs=[], 
                                                                         outputs=[], 
                                                                         calculation_function=MagicMock(return_value=5))
-        self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
 
         # Execute
         self.federate_executor.enter_simulation_loop()
@@ -139,7 +136,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         outputs=[], 
                                                                         calculation_function=MagicMock(return_value=5),
                                                                         time_delta=0)
-        self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
 
         # Execute
         self.federate_executor.enter_simulation_loop()
@@ -160,7 +157,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         calculation_function=MagicMock(return_value=5),
                                                                         time_request_type=TimeRequestType.ON_INPUT,
                                                                         time_delta=5)
-        self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
 
         # Execute
         self.federate_executor.enter_simulation_loop()
@@ -181,12 +178,13 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         outputs=[], 
                                                                         calculation_function=calculation_function)
 
-        self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
         inputs = [
             CalculationServiceInput("test-type", "test-input", "test-input-id", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key"),
             CalculationServiceInput("test-type2", "test-input2", "test-input-id2", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key2")
         ]
         self.federate_executor.input_dict["f006d594-0743-4de5-a589-a6c2350898da"] = inputs
+        self.federate_executor.all_inputs = inputs
 
         def helics_value_side_effect(value):
             return 5 if value == inputs[0] else None
@@ -212,7 +210,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         outputs=[], 
                                                                         calculation_function=calculation_function)
 
-        self.federate_executor = HelicsCombinationFederateExecutor(calculation_information_schedule)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
         test_input_key = "test-input-key"
         test_input_key2 = "test-input-key2"
         inputs = [
@@ -220,6 +218,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
             CalculationServiceInput("test-type2", "test-input2", "test-input-id2", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key2")
         ]
         self.federate_executor.input_dict["f006d594-0743-4de5-a589-a6c2350898da"] = inputs
+        self.federate_executor.all_inputs = inputs
 
         self.federate_executor.get_helics_value = MagicMock(return_value=5)
         param_dict = {
@@ -265,13 +264,13 @@ class TestLogicRunningSimulation(unittest.TestCase):
         # Assert
         self.assertEqual(len(simulation_executor.calculations), 2)
 
-        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_request_type, TimeRequestType.ON_INPUT )
-        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_period_in_seconds, 0)
-        self.assertEqual(simulation_executor.calculations[0].helics_combination_federate_info.time_delta, 5)
+        self.assertEqual(simulation_executor.calculations[0].helics_value_federate_info.time_request_type, TimeRequestType.ON_INPUT )
+        self.assertEqual(simulation_executor.calculations[0].helics_value_federate_info.time_period_in_seconds, 0)
+        self.assertEqual(simulation_executor.calculations[0].helics_value_federate_info.time_delta, 5)
 
-        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_request_type, TimeRequestType.PERIOD )
-        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_period_in_seconds, 5)
-        self.assertEqual(simulation_executor.calculations[1].helics_combination_federate_info.time_delta, 0)
+        self.assertEqual(simulation_executor.calculations[1].helics_value_federate_info.time_request_type, TimeRequestType.PERIOD )
+        self.assertEqual(simulation_executor.calculations[1].helics_value_federate_info.time_period_in_seconds, 5)
+        self.assertEqual(simulation_executor.calculations[1].helics_value_federate_info.time_delta, 0)
 
 
 if __name__ == '__main__':

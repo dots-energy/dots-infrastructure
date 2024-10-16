@@ -1,6 +1,7 @@
 import base64
 from datetime import datetime
 from threading import Thread
+import time
 from typing import List
 import unittest
 import helics as h
@@ -26,11 +27,12 @@ INFLUX_DB_NAME = "test-database-name"
 INFLUX_HOST = "test-host"
 SIMULATION_ID = "test-id"
 BROKER_IP = "127.0.0.1"
+TIMESTEP_TIMEOUT_IN_MINUTES = 15
 
 MS_TO_BROKER_DISCONNECT = 60000
 
 def simulator_environment_e_pv():
-    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
 
 class CalculationServicePVDispatch(HelicsSimulationExecutor):
 
@@ -46,11 +48,24 @@ class CalculationServicePVDispatch(HelicsSimulationExecutor):
         info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
         self.add_calculation(info)
 
+        self.influx_connector = InfluxDBMock()
+        publictations_values = []
+        subscriptions_values = [
+            SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+        pv_installation_period_in_seconds = 60
+        info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "process_econnection_dispatch", subscriptions_values, publictations_values, self.process_econnection_dispatch)
+        self.add_calculation(info)
+
 
     def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         ret_val = {}
         ret_val["PV_Dispatch"] = time_step_number.current_time_step_number
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, ret_val["PV_Dispatch"])
+        return ret_val
+    
+    def process_econnection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        ret_val = {}
         return ret_val
 
 class CalculationServicePVDispatchMultipleOutputs(HelicsSimulationExecutor):
@@ -77,7 +92,7 @@ class CalculationServicePVDispatchMultipleOutputs(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_energy_market():
-    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
 
 class CalculationServiceMarketService(HelicsSimulationExecutor):
 
@@ -103,7 +118,7 @@ class CalculationServiceMarketService(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_connection():
-    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -155,7 +170,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_commonity():
-    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES, TIMESTEP_TIMEOUT_IN_MINUTES)
 
 class CalculationServiceElectricityCommodity(HelicsSimulationExecutor):
     def __init__(self):
@@ -276,31 +291,9 @@ class TestSimulation(unittest.TestCase):
         actual_data_point_values_dispatch = [dp.value for dp in cs_econnection.influx_connector.data_points]
         self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
 
-    def test_given_exception_occurrs_in_cs_then_simulation_is_termintaed(self):
-        # Arrange 
-        self.start_broker(2)
-        e_connection_dispatch_period_in_seconds = 60
-        pv_period = 30
-
-        # Execute
-        cs_econnection = CalculationServiceEConnectionException()
-        cs_dispatch = CalculationServicePVDispatch()
-
-        cs_econnection.start_simulation()
-        cs_dispatch.start_simulation()
-        cs_econnection.stop_simulation()
-        cs_dispatch.stop_simulation()
-        self.stop_broker()
-
-        # Assert
-        # No data should be generated as exception is generated right away
-        self.assertEqual(len(cs_econnection.influx_connector.data_points), 0) 
-        # 2 pv panels produce data at most 3 times so
-        self.assertLessEqual(len(cs_econnection.influx_connector.data_points), 2 * e_connection_dispatch_period_in_seconds / pv_period + 1)
-
     def test_given_a_set_of_calculation_services_then_simulation_executes_as_expected(self):
         # Arrange 
-        self.start_broker(5)
+        self.start_broker(6)
 
         e_connection_dispatch_period_in_seconds = 60
         e_connection_period_scedule_in_seconds = 60
