@@ -11,6 +11,38 @@ class TestParse(unittest.TestCase):
         with open("test-input-extraction-network.esdl", mode="r") as esdl_file:
             self.encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
+    def test_assets_in_building_can_get_inputs_from_other_assets_inside_building(self):
+        # Arrange
+        simulator_esdl_id = '15bc27e8-97db-427c-959e-e2a2fca27f75'
+
+        esdl_helper = EsdlHelper(self.encoded_base64_esdl)
+
+        subscription_descriptions = [
+            SubscriptionDescription(esdl_type="ElectricityDemand",input_name="active_power",input_unit="W",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="ElectricityDemand",input_name="reactive_power",input_unit="VAr",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="EConnection",input_name="heat_to_dw",input_unit="W",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="HybridHeatPump",input_name="buffer_temperature",input_unit="K",input_type=h.HelicsDataType.DOUBLE),
+            SubscriptionDescription(esdl_type="HybridHeatPump",input_name="house_temperatures",input_unit="K",input_type=h.HelicsDataType.VECTOR),
+            SubscriptionDescription(esdl_type="EVChargingStation",input_name="state_of_charge_ev",input_unit="J",input_type=h.HelicsDataType.DOUBLE)
+        ]
+
+        expected_input_descriptions = [
+            CalculationServiceInput("EConnection", "heat_to_dw", '7415cddb-b735-4646-b772-47f101b5c7a8', "W", h.HelicsDataType.VECTOR, simulator_esdl_id, "EConnection/heat_to_dw/7415cddb-b735-4646-b772-47f101b5c7a8"),
+            CalculationServiceInput("ElectricityDemand", "active_power", '5ad97622-7226-40b1-a163-260b3478b1e3', "W", h.HelicsDataType.VECTOR, simulator_esdl_id, "ElectricityDemand/active_power/5ad97622-7226-40b1-a163-260b3478b1e3"),
+            CalculationServiceInput("ElectricityDemand", "reactive_power", '5ad97622-7226-40b1-a163-260b3478b1e3', "VAr", h.HelicsDataType.VECTOR, simulator_esdl_id, "ElectricityDemand/reactive_power/5ad97622-7226-40b1-a163-260b3478b1e3")
+        ]
+
+        calculation_services = [
+            "ElectricityDemand",
+            "EConnection"
+        ]
+
+        # Execute
+        inputs = esdl_helper.get_connected_input_esdl_objects(simulator_esdl_id, calculation_services, subscription_descriptions)
+
+        # Assert correct assets are extracted from esdl file
+        self.assertListEqual(expected_input_descriptions, inputs)
+    
     def test_esdl_entity_recevies_subscriptions_from_connected_entities(self):
 
         # Arrange

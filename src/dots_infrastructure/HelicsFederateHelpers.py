@@ -25,7 +25,7 @@ class HelicsFederateExecutor:
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
         h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
         h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
-        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, self.simulator_configuration.log_level)
+        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HELICS_LOG_LEVEL_NO_PRINT)
         return federate_info
 
     def init_calculation_service_federate_info(self, info : HelicsCalculationInformation):
@@ -182,7 +182,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             h.helicsPublicationPublishBytes(pub, value)
         else:
             raise ValueError("Unsupported Helics Data Type")
-        
+
     def finalize_simulation(self):
         if self.helics_combination_federate_info.time_request_type == TimeRequestType.PERIOD:
             LOGGER.info(f"Requesting max time for federate: {h.helicsFederateGetName(self.combination_federate)}")
@@ -192,7 +192,7 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
     def start_combination_federate(self):
         self.enter_simulation_loop()
         self.finalize_simulation()
-    
+
     def initialize_and_start_federate(self, esdl_helper : EsdlHelper):
         LOGGER.debug(f"[{self.simulator_configuration.model_id}/{self.helics_combination_federate_info.calculation_name}] Initializing federate")
         self.init_federate(esdl_helper)
@@ -288,8 +288,6 @@ class HelicsCombinationFederateExecutor(HelicsFederateExecutor):
             simulator_time = self.simulator_configuration.start_time + timedelta(seconds = granted_time)
             time_step_number = self._compute_time_step_number(granted_time)
             time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
-            if h.helicsFederateGetName(self.combination_federate) == "Mock-Econnection/EConnectionSchedule":
-                hoi = 5
             terminate_requested = self._gather_all_required_inputs(calculation_params)
 
             for esdl_id in self.simulator_configuration.esdl_ids:
