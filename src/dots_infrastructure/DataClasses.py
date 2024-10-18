@@ -59,6 +59,7 @@ class HelicsCalculationInformation:
     outputs : List[PublicationDescription]
     calculation_function : any
     time_delta : float = 0
+    federate_time_period = 0
     time_request_type : TimeRequestType = TimeRequestType.PERIOD
 
 @dataclass
@@ -78,7 +79,6 @@ class SimulatorConfiguration:
     influx_database_name : str
     log_level : h.HelicsLogLevel
     calculation_services : List[str]
-    time_step_time_out_minutes : float
 
 @dataclass
 class SimulaitonDataPoint:

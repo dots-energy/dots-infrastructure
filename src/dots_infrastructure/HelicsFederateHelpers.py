@@ -26,12 +26,12 @@ class HelicsFederateExecutor:
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
         h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
         h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
-        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HELICS_LOG_LEVEL_NO_PRINT)
+        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HelicsLogLevel.NO_PRINT)
         return federate_info
 
     def init_calculation_service_federate_info(self, info : HelicsCalculationInformation):
         federate_info = self.init_default_federate_info()
-        h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.time_period_in_seconds)
+        h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.federate_time_period)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_DELTA, info.time_delta)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_OFFSET, info.offset)
         h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFederateFlag.UNINTERRUPTIBLE, info.uninterruptible)
@@ -97,8 +97,9 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             LOGGER.debug(f"[{self.value_federate.name}] Subscribing to publication with key: {input.helics_sub_key}")
             sub = h.helicsFederateRegisterSubscription(value_federate, input.helics_sub_key, input.input_unit)
             input.helics_input = sub
-            if input not in self.all_inputs:
-                self.all_inputs.append(input)
+
+        self.all_inputs = inputs
+        LOGGER.debug(f"Registered inputs: {inputs}")
 
     def remove_duplicate_subscriptions_and_update_inputs(self, inputs : List[CalculationServiceInput], inputs_for_esdl_object : List[CalculationServiceInput]):
         for i, new_input in enumerate(inputs_for_esdl_object):
@@ -148,6 +149,9 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             else:
                 raise ValueError("Unsupported Helics Data Type")
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Got value: {ret_val} from {helics_sub.helics_sub_key}")
+
+        if ret_val == None:
+            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Input not yet present: {helics_sub.helics_sub_key}")
         return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
@@ -182,9 +186,6 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             raise ValueError("Unsupported Helics Data Type")
 
     def finalize_simulation(self):
-        if self.helics_value_federate_info.time_request_type == TimeRequestType.PERIOD:
-            LOGGER.info(f"Requesting max time for federate: {h.helicsFederateGetName(self.value_federate)}")
-            h.helicsFederateRequestTime(self.value_federate, h.HELICS_TIME_MAXTIME)
         Common.destroy_federate(self.value_federate)
 
     def start_value_federate(self):
@@ -198,12 +199,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         self.start_value_federate()
 
     def _compute_time_step_number(self, time_of_timestep_to_compute):
-        ret_val = 0
-        if self.helics_value_federate_info.time_request_type == TimeRequestType.PERIOD:
-            ret_val = int(math.floor(time_of_timestep_to_compute / self.helics_value_federate_info.time_period_in_seconds))
-        elif self.helics_value_federate_info.time_request_type == TimeRequestType.ON_INPUT:
-            ret_val = int(math.floor(time_of_timestep_to_compute / self.helics_value_federate_info.time_delta))
-        return ret_val
+        return int(math.floor(time_of_timestep_to_compute / self.helics_value_federate_info.time_period_in_seconds))
 
     def _init_calculation_params(self):
         ret_val = {}
@@ -231,38 +227,34 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
 
     def _gather_new_inputs(self, calculation_params, input_dict):
         for input in self.all_inputs:
-            if input_dict[input.helics_sub_key] == None:
-                input_dict[input.helics_sub_key] = self.get_helics_value(input)
+            new_value = self.get_helics_value(input)
+            if new_value != None:
+                input_dict[input.helics_sub_key] = new_value
 
         for esdl_id in self.simulator_configuration.esdl_ids:
             if esdl_id in self.input_dict.keys():
                 inputs = self.input_dict[esdl_id]
                 for helics_input in inputs:
-                    if calculation_params[esdl_id][helics_input.helics_sub_key] == None:
-                        calculation_params[esdl_id][helics_input.helics_sub_key] = input_dict[helics_input.helics_sub_key]
+                    calculation_params[esdl_id][helics_input.helics_sub_key] = input_dict[helics_input.helics_sub_key]
 
     def _get_request_time(self, granted_time):
+        requested_time = 0
         if self.helics_value_federate_info.time_request_type == TimeRequestType.PERIOD:
             requested_time = granted_time + self.helics_value_federate_info.time_period_in_seconds
         if self.helics_value_federate_info.time_request_type == TimeRequestType.ON_INPUT:
             requested_time = h.HELICS_TIME_MAXTIME
         return requested_time
-    
-    def _gather_all_required_inputs(self, calculation_params):
+
+    def _gather_all_required_inputs(self, calculation_params : dict, granted_time : h.HelicsTime):
         LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Gathering all inputs")
-        terminate_requested = False
         input_dict = self._init_input_dict()
-        max_amount_of_waiting_iterations = math.ceil(self.simulator_configuration.time_step_time_out_minutes * 60 / self.WAIT_FOR_INPUT_ITERATION_DURATION_SECONDS)
-        waiting_iterations = 0
         self._gather_new_inputs(calculation_params, input_dict)
-        while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict) and not terminate_requested:
-            waiting_iterations += 1
-            time.sleep(self.WAIT_FOR_INPUT_ITERATION_DURATION_SECONDS)
+        new_granted_time = granted_time
+        while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict):
+            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] requesting max time again to wait for new inputs")
+            new_granted_time = h.helicsFederateRequestTime(self.value_federate, h.HELICS_TIME_MAXTIME)
             self._gather_new_inputs(calculation_params, input_dict)
-            if max_amount_of_waiting_iterations == waiting_iterations:
-                LOGGER.error("Timeout reached for getting all required values for esdl_id")
-                terminate_requested = True
-        return terminate_requested
+        return new_granted_time
 
     def enter_simulation_loop(self):
         LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Entering HELICS execution mode {self.helics_value_federate_info.calculation_name}")
@@ -281,10 +273,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             granted_time = h.helicsFederateRequestTime(self.value_federate, requested_time)
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Time granted: {granted_time} for calculation {self.helics_value_federate_info.calculation_name}")
 
-            simulator_time = self.simulator_configuration.start_time + timedelta(seconds = granted_time)
             time_step_number = self._compute_time_step_number(granted_time)
             time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
-            terminate_requested = self._gather_all_required_inputs(calculation_params)
+            granted_time = self._gather_all_required_inputs(calculation_params, granted_time)
+            simulator_time = self.simulator_configuration.start_time + timedelta(seconds = granted_time)
 
             for esdl_id in self.simulator_configuration.esdl_ids:
                 try:
@@ -316,10 +308,10 @@ class HelicsSimulationExecutor:
             info.inputs = []
         if info.outputs == None:
             info.outputs = []
+        info.federate_time_period = info.time_period_in_seconds
         if len(info.inputs) > 0:
-            info.time_delta = info.time_period_in_seconds
-            info.time_period_in_seconds = 0
             info.time_request_type = TimeRequestType.ON_INPUT
+            info.federate_time_period = 0
         self.calculations.append(HelicsValueFederateExecutor(info))
 
     def _get_esdl_from_so(self):
