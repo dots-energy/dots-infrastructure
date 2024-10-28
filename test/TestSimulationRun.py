@@ -216,11 +216,34 @@ class CalculationServiceMultiplePvInputsEConnection(HelicsSimulationExecutor):
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, pv_dispatch)
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch2", simulation_time, pv_dispatch2)
         return ret_val
+    
+class CalculationServiceEConnectionException(HelicsSimulationExecutor):
+
+    def __init__(self):
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_connection
+        super().__init__()
+        self.influx_connector = InfluxDBMock()
+
+        subscriptions_values = [
+            SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+
+        publication_values = [
+            PublicationDescription(True, "EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+
+        e_connection_period_in_seconds = 60
+
+        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values, self.e_connection_dispatch)
+        self.add_calculation(calculation_information)
+
+    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        raise Exception("Test-exception")
 
 class TestSimulation(unittest.TestCase):
 
     def start_helics_broker(self, federates):
-        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime")
+        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime --port {BROKER_TEST_PORT}")
         broker.wait_for_disconnect(MS_TO_BROKER_DISCONNECT)
 
     def setUp(self):
@@ -268,6 +291,33 @@ class TestSimulation(unittest.TestCase):
         # Assert
         actual_data_point_values_dispatch = [dp.value for dp in cs_econnection.influx_connector.data_points]
         self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
+
+    def test_given_exception_occurss_termination_bool_is_set_to_true(self):
+        # Arrange 
+        self.start_broker(2)
+        e_connection_dispatch_period_in_seconds = 60
+        pv_period = 30
+
+        # Execute
+        cs_econnection = CalculationServiceEConnectionException()
+        cs_dispatch = CalculationServicePVDispatch()
+
+        cs_econnection.start_simulation()
+        cs_dispatch.start_simulation()
+        
+        with self.assertRaises(RuntimeError):
+            cs_econnection.stop_simulation()
+            cs_dispatch.stop_simulation()
+
+        self.stop_broker()
+
+        # Assert
+        # No data should be generated as exception is generated right away
+        self.assertEqual(len(cs_econnection.influx_connector.data_points), 0) 
+        self.assertTrue(all([calculation.running_status.exception and calculation.running_status.terminated for calculation in cs_econnection.calculations]))
+        
+        # 2 pv panels produce data at most 3 times so
+        self.assertLessEqual(len(cs_econnection.influx_connector.data_points), 2 * e_connection_dispatch_period_in_seconds / pv_period + 1)
 
     def test_given_a_set_of_calculation_services_then_simulation_executes_as_expected(self):
         # Arrange 
