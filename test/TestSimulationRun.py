@@ -240,6 +240,69 @@ class CalculationServiceEConnectionException(HelicsSimulationExecutor):
     def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         raise Exception("Test-exception")
 
+class CalculationServiceEConnectionControlLoop(HelicsSimulationExecutor):
+    def __init__(self):
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_connection
+        super().__init__()
+        self.influx_connector = InfluxDBMock()
+
+        subscriptions_values = [
+            SubscriptionDescription("PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+
+        publication_values_dispatch = [
+            PublicationDescription(True, "EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+
+        e_connection_period_in_seconds = 30
+
+        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "EConnectionDispatch", subscriptions_values, publication_values_dispatch, self.e_connection_dispatch)
+        self.add_calculation(calculation_information)
+
+    def e_connection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "PV_Dispatch")
+        ret_val = {}
+        ret_val["EConnectionDispatch"] = pv_dispatch
+        time.sleep(1)
+        return ret_val
+
+class CalculationServicePVDispatchControlLoop(HelicsSimulationExecutor):
+
+    def __init__(self):
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_pv
+        super().__init__()
+        self.influx_connector = InfluxDBMock()
+        publictations_values = [
+            PublicationDescription(True, "PVInstallation", "PV_Dispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+        subscriptions_values = []
+        pv_installation_period_in_seconds = 30
+        info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "pvdispatch_calculation", subscriptions_values, publictations_values, self.pvdispatch_calculation)
+        self.add_calculation(info)
+
+        self.influx_connector = InfluxDBMock()
+        publictations_values = []
+        subscriptions_values = [
+            SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
+        ]
+        pv_installation_period_in_seconds = 30
+        info = HelicsCalculationInformation(pv_installation_period_in_seconds, 0, False, False, True, "process_econnection_dispatch", subscriptions_values, publictations_values, self.process_econnection_dispatch)
+        self.add_calculation(info)
+
+    def init_calculation_service(self, energy_system : EnergySystem):
+        self.next_pv_dispatch = 1.0
+
+    def pvdispatch_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        ret_val = {}
+        ret_val["PV_Dispatch"] = self.next_pv_dispatch
+        return ret_val
+    
+    def process_econnection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        self.next_pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "EConnectionDispatch") + 1
+        self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, self.next_pv_dispatch)
+        ret_val = {}
+        return ret_val
+
 class TestSimulation(unittest.TestCase):
 
     def start_helics_broker(self, federates):
@@ -358,6 +421,28 @@ class TestSimulation(unittest.TestCase):
                          SIMULATION_DURATION_IN_SECONDS / e_connection_period_scedule_in_seconds)
         self.assertEqual(len(cs_dispatch.influx_connector.data_points), SIMULATION_DURATION_IN_SECONDS / pv_period * 2)
         self.assertTrue(cs_econnection.calculation_service_initialized)
+
+    def test_given_a_two_calculation_services_in_control_loop_then_data_is_exchanged_as_expected(self):
+        # Arrange 
+        self.start_broker(3)
+        expected_data_point_values_dispatch = []
+        for i in range(2, 6):
+            expected_data_point_values_dispatch.append(i)
+            expected_data_point_values_dispatch.append(i)
+
+        # Execute
+        cs_econnection = CalculationServiceEConnectionControlLoop()
+        cs_dispatch = CalculationServicePVDispatchControlLoop()
+
+        cs_econnection.start_simulation()
+        cs_dispatch.start_simulation()
+        cs_econnection.stop_simulation()
+        cs_dispatch.stop_simulation()
+        self.stop_broker()
+
+        # Assert
+        actual_data_point_values_dispatch = [dp.value for dp in cs_dispatch.influx_connector.data_points ]
+        self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
 
 if __name__ == '__main__':
     unittest.main()
