@@ -91,3 +91,8 @@ class SimulaitonDataPoint:
 class TimeStepInformation:
     current_time_step_number : int
     max_time_step_number : int
+
+@dataclass
+class RunningStatus:
+    terminated : bool = False
+    exception : bool = False

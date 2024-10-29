@@ -165,8 +165,6 @@ class TestLogicRunningSimulation(unittest.TestCase):
         # Assert
         h.helicsFederateRequestTime.assert_called_once_with(None, h.HELICS_TIME_MAXTIME)
 
-    # replace with tests on gather_inputs
-
     def test_calculation_is_not_executed_when_all_inputs_are_not_present(self):
 
         calculation_function = MagicMock()

@@ -39,4 +39,6 @@ jobs:
     - name: Test with unittest
       run: |
         cd test
-        python -m unittest discover -s ./  -p 'Test*.py'
+        python TestHelicsFederateHelpersLogic.py
+        python TestInputExtraction.py
+        python TestSimulationRun.py
