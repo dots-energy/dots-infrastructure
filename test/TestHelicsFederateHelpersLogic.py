@@ -124,6 +124,28 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsFederateEnterExecutingMode.assert_called_once()
         calculation_information_schedule.calculation_function.assert_called_once_with({}, datetime(2024, 1, 1, 0, 0, 5), TimeStepInformation(1,1), 'f006d594-0743-4de5-a589-a6c2350898da', None)
 
+    def test_when_calculation_has_period_bigger_than_simulation_duration_then_exception_is_raised(self):
+        # arrange
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=10,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionSchedule", 
+                                                                        inputs=[], 
+                                                                        outputs=[], 
+                                                                        calculation_function=MagicMock(return_value=5),
+                                                                        time_delta=0)
+        
+        executor = HelicsSimulationExecutor()
+        executor.init_simulation = MagicMock()
+        executor.add_calculation(calculation_information_schedule)
+        executor.calculations[0].initialize_and_start_federate = MagicMock()
+
+        # Execute and assert
+        with self.assertRaises(RuntimeError):
+            executor.start_simulation()
+    
     def test_when_time_request_type_period_helicsFederateRequestTime_called_with_period(self):
         # arrange
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,

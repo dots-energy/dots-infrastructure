@@ -339,15 +339,19 @@ class HelicsSimulationExecutor:
         self._init_influxdb(esdl_helper)
         self.init_calculation_service(esdl_helper.energy_system)
         return esdl_helper
+    
+    def _assert_that_periods_of_calculation_are_smaller_than_simulation_duration(self):
+        simulation_duration = self.simulator_configuration.simulation_duration_in_seconds
+        for calculation in self.calculations:
+            if calculation.helics_value_federate_info.time_period_in_seconds > simulation_duration:
+                raise RuntimeError(f"Calculation: {calculation.helics_value_federate_info.calculation_name} has a period > the simulatino duration therefore it will not execute")
 
     def start_simulation(self):
+        self._assert_that_periods_of_calculation_are_smaller_than_simulation_duration()
         esdl_helper = self.init_simulation()
         self.exe = ThreadPoolExecutor(len(self.calculations))
         for calculation in self.calculations:
             self.exe.submit(calculation.initialize_and_start_federate, esdl_helper)
-
-        while all([calculation.running_status.terminated for calculation in self.calculations]):
-            time.sleep(0.5)
 
     def stop_simulation(self):
         self.exe.shutdown()
