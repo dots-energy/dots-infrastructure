@@ -12,7 +12,7 @@
 #  Manager:
 #      TNO
 
-import typing, numpy
+import typing
 
 from datetime import datetime
 from dots_infrastructure.DataClasses import EsdlId, SimulaitonDataPoint
@@ -62,33 +62,33 @@ class InfluxDBConnector:
                 password=self.influx_password,
             )
             LOGGER.debug("InfluxDBClient ping: {}".format(client.ping()))
-            self.client = client
         except Exception as e:
             LOGGER.debug("Failed to connect to influx db: {}".format(e))
             if client:
                 client.close()
-            self.client = None
-        return self.client
+        return client
 
     def query(self, query):
         if self.client is None:
-            self.connect()
+            self.client = self.connect()
 
         return self.client.query(query)
 
     def create_database(self):
         if self.client is None:
-            self.connect()
+            self.client = self.connect()
         self.client.create_database(self.influx_database_name)
 
     def write(self, msgs):
         if self.client is None:
-            self.connect()
+            self.client = self.connect()
 
         # Send message to database.
-        self.client.write_points(
-            msgs, database=self.influx_database_name, time_precision="s"
-        )
+        chunk_size = 100000
+        for i in range(0, len(msgs), chunk_size):
+            chunk = msgs[i:i + chunk_size]
+            self.client.write_points(chunk, database=self.influx_database_name, time_precision="s")
+        
 
     def close(self):
         if self.client:

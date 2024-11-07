@@ -40,5 +40,6 @@ jobs:
       run: |
         cd test
         python TestHelicsFederateHelpersLogic.py
+        python TestInfluxDbWriterLogic.py
         python TestInputExtraction.py
         python TestSimulationRun.py
