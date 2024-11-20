@@ -1,8 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-import json
 import math
-import time
 import traceback
 from typing import List
 import helics as h
@@ -43,6 +41,8 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
     def __init__(self, info : HelicsMessageFederateInformation):
         super().__init__()
         self.helics_message_federate_information = info
+        self.message_federate = None
+        self.message_enpoint = None
 
     def init_federate(self):
         federate_info = self.init_default_federate_info()
@@ -50,9 +50,18 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
         self.message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.endpoint_name)
 
     def wait_for_esdl_file(self) -> EsdlHelper:
-        self.message_federate.enter_executing_mode()
-        h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME)
-        esdl_file_base64 = h.helicsMessageGetString(h.helicsEndpointGetMessage(self.message_enpoint))
+        h.helicsFederateEnterExecutingMode(self.message_federate)
+        esdl_file_base64 = ""
+        while h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME) != h.HELICS_TIME_MAXTIME:
+            LOGGER.debug("Fetching an esdl message string at time")
+            esdl_file_base64_part = ""
+            if h.helicsEndpointHasMessage(self.message_enpoint):
+                esdl_file_base64_part_bytes = h.helicsMessageGetBytes(h.helicsEndpointGetMessage(self.message_enpoint))
+                esdl_file_base64_part = esdl_file_base64_part_bytes.decode()
+                LOGGER.debug(f"Received part of esdl file with: {len(esdl_file_base64_part)} characters")
+            esdl_file_base64 += esdl_file_base64_part
+
+        LOGGER.debug("Destroying esdl message federate")
         Common.destroy_federate(self.message_federate)
         esdl_helper = EsdlHelper(esdl_file_base64)
 

@@ -5,6 +5,7 @@ from esdl.esdl_handler import EnergySystemHandler
 from esdl import esdl
 from esdl import EnergySystem
 from dots_infrastructure.DataClasses import CalculationServiceInput, EsdlId, SubscriptionDescription
+from dots_infrastructure.Logger import LOGGER
 
 class EsdlHelper:
 
@@ -15,6 +16,7 @@ class EsdlHelper:
 
     def _get_energy_system_from_base64_encoded_esdl_string(self, esdl_string_base64) -> EnergySystem:
         esdl_string = b64decode(esdl_string_base64 + b"==".decode("utf-8")).decode("utf-8")
+        LOGGER.debug(f"Parsing esdl string of {len(esdl_string)} characters")
         esh = EnergySystemHandler()
         esh.load_from_string(esdl_string)
         return esh.get_energy_system()
