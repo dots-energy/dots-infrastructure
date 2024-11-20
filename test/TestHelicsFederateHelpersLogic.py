@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime
 import unittest
 from unittest.mock import MagicMock, patch
@@ -7,9 +8,10 @@ import helics as h
 
 from dots_infrastructure import CalculationServiceHelperFunctions, Common
 from dots_infrastructure.Constants import TimeRequestType
-from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
-from dots_infrastructure.HelicsFederateHelpers import HelicsValueFederateExecutor, HelicsSimulationExecutor
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, HelicsMessageFederateInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.HelicsFederateHelpers import HelicsEsdlMessageFederateExecutor, HelicsValueFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
+from dots_infrastructure.test_infra.HelicsMocks import HelicsEndpointMock, HelicsFederateMock
 
 LOGGER.disabled = True
 
@@ -87,16 +89,30 @@ class TestLogicAddingCalculations(unittest.TestCase):
 class TestLogicRunningSimulation(unittest.TestCase):
 
     def setUp(self):
+        with open("test.esdl", mode="r") as esdl_file:
+            self.encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
+
         self.federate_get_name = h.helicsFederateGetName
         self.get_sim_config_from_env = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment 
         self.fed_eneter_executing_mode = h.helicsFederateEnterExecutingMode
         self.get_time_property = h.helicsFederateGetTimeProperty 
         self.request_time = h.helicsFederateRequestTime
+        self.helics_endpoint_has_message = h.helicsEndpointHasMessage
+        self.helics_message_get_bytes = h.helicsMessageGetBytes
+        self.helics_endpoint_get_message = h.helicsEndpointGetMessage
+        self.helics_create_message_federate = h.helicsCreateMessageFederate
+        self.helics_federate_register_endpoint = h.helicsFederateRegisterEndpoint
+        self.common_destroy_federate = Common.destroy_federate
         h.helicsFederateGetName = MagicMock(return_value = "LogicTest")
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
         h.helicsFederateEnterExecutingMode = MagicMock()
         h.helicsFederateGetTimeProperty = MagicMock(return_value = 5)
         h.helicsFederateRequestTime = MagicMock(return_value = 5)
+        h.helicsEndpointHasMessage = MagicMock(return_value = True)
+        h.helicsEndpointGetMessage = MagicMock(return_value = None)
+        h.helicsCreateMessageFederate = MagicMock(return_value = HelicsFederateMock())
+        h.helicsFederateRegisterEndpoint = MagicMock(return_value = HelicsEndpointMock())
+        Common.destroy_federate = MagicMock()
 
     def tearDown(self):
         h.helicsFederateGetName = self.federate_get_name
@@ -104,6 +120,12 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsFederateEnterExecutingMode = self.fed_eneter_executing_mode
         h.helicsFederateGetTimeProperty = self.get_time_property
         h.helicsFederateRequestTime = self.request_time
+        h.helicsEndpointHasMessage = self.helics_endpoint_has_message
+        h.helicsMessageGetBytes = self.helics_message_get_bytes
+        h.helicsCreateMessageFederate = self.helics_create_message_federate 
+        h.helicsFederateRegisterEndpoint = self.helics_federate_register_endpoint
+        h.helicsEndpointGetMessage = self.helics_endpoint_get_message
+        Common.destroy_federate = self.common_destroy_federate
 
     def test_helics_simulation_loop_started_correctly(self):
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
@@ -301,6 +323,47 @@ class TestLogicRunningSimulation(unittest.TestCase):
         self.assertEqual(simulation_executor.calculations[1].helics_value_federate_info.time_period_in_seconds, 5)
         self.assertEqual(simulation_executor.calculations[1].helics_value_federate_info.federate_time_period, 5)
 
+    def test_given_waiting_for_esdl_when_full_esdl_is_received_esdl_helper_is_correctly_constructed(self):
+        # arrange
+        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation('esdl'))
+        esdl_message_federate.init_federate()
+
+        self.i = 0
+        def helics_request_time(a, b):
+            self.i += 1
+            return 5 if self.i == 1 else h.HELICS_TIME_MAXTIME
+
+        h.helicsFederateRequestTime = MagicMock(side_effect=helics_request_time)
+        h.helicsMessageGetBytes = MagicMock(return_value=self.encoded_base64_esdl.encode())
+
+        # execute
+        helper = esdl_message_federate.wait_for_esdl_file()
+
+        self.assertIsNotNone(helper)
+
+    def test_given_waiting_for_esdl_when_full_esdl_is_received_in_parts_esdl_helper_is_correctly_constructed(self):
+        # arrange
+        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation('esdl'))
+        esdl_message_federate.init_federate()
+
+        self.i = 0
+        def helics_request_time(a, b):
+            self.i += 1
+            return 5 if self.i <= 2 else h.HELICS_TIME_MAXTIME
+
+        h.helicsFederateRequestTime = MagicMock(side_effect=helics_request_time)
+
+        self.j = 0
+        def helics_message_get_bytes(a):
+            self.j += 1
+            return self.encoded_base64_esdl[0:int(len(self.encoded_base64_esdl))].encode() if self.j == 1 else self.encoded_base64_esdl[int(len(self.encoded_base64_esdl)):].encode()
+
+        h.helicsMessageGetBytes = MagicMock(side_effect=helics_message_get_bytes)
+
+        # execute
+        helper = esdl_message_federate.wait_for_esdl_file()
+
+        self.assertIsNotNone(helper)
 
 if __name__ == '__main__':
     unittest.main()
