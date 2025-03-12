@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dots_infrastructure"
-version = "0.4.5"
+version = "0.4.6"
 authors = [
   { name="Leo van Schooten", email="l.g.t.v.schooten@tue.nl" },
 ]
 dependencies = [
-    'helics==3.4.0',
+    'helics==3.6.1',
     'matplotlib==3.8.2',
     'numpy==1.26.4',
     'pyesdl==22.11.2',
