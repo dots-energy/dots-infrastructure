@@ -1,5 +1,5 @@
 # dots-infrastructure
-This package provides the infrastructure to develop dots calculation services an example of how a calculation function can be developed can be found in the [Dots calculation service template](https://github.com/EES-TUe/Dots-calculation-service-template). This package implements [helics](https://helics.org/) as a co-simulation engine. 
+This package provides the infrastructure to develop dots calculation services an example of how a calculation function can be developed can be found in the [Dots calculation service template](https://github.com/dots-energy/Dots-calculation-service-template). This package implements [helics](https://helics.org/) as a co-simulation engine. 
 
 ## Contents
 - Federate structure
