@@ -251,7 +251,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
     def _get_request_time(self, granted_time):
         requested_time = 0
         if self.helics_value_federate_info.time_request_type == TimeRequestType.PERIOD:
-            requested_time = granted_time + self.helics_value_federate_info.time_period_in_seconds
+            if granted_time == 0 and self.helics_value_federate_info.offset > 0:
+                requested_time = self.helics_value_federate_info.offset
+            else:
+                requested_time = granted_time + self.helics_value_federate_info.time_period_in_seconds
         if self.helics_value_federate_info.time_request_type == TimeRequestType.ON_INPUT:
             requested_time = h.HELICS_TIME_MAXTIME
         return requested_time
@@ -278,14 +281,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         total_interval = self.simulator_configuration.simulation_duration_in_seconds
         max_time_step_number = self._compute_time_step_number(total_interval)
         granted_time = 0
+        granted_time = self.request_new_granted_time(granted_time)
         terminate_requested = False
         calculation_params = self._init_calculation_params()
-        while granted_time < total_interval and not terminate_requested:
-
-            requested_time = self._get_request_time(granted_time)
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Requesting time: {requested_time} for calculation {self.helics_value_federate_info.calculation_name}")
-            granted_time = h.helicsFederateRequestTime(self.value_federate, requested_time)
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Time granted: {granted_time} for calculation {self.helics_value_federate_info.calculation_name}")
+        while granted_time <= total_interval and not terminate_requested:
 
             time_step_number = self._compute_time_step_number(granted_time)
             time_step_information = TimeStepInformation(time_step_number, max_time_step_number)
@@ -307,8 +306,16 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
                     self.running_status.exception = True
 
             LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Finished {granted_time} of {total_interval} and terminate requested {terminate_requested}")
+            granted_time = self.request_new_granted_time(granted_time)
 
         LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Finalizing federate at {granted_time} of {total_interval} and terminate requested {terminate_requested}")
+
+    def request_new_granted_time(self, granted_time):
+        time_to_request = self._get_request_time(granted_time)
+        LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Requesting time: {time_to_request} for calculation {self.helics_value_federate_info.calculation_name}")
+        granted_time = h.helicsFederateRequestTime(self.value_federate, time_to_request)
+        LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Time granted: {granted_time} for calculation {self.helics_value_federate_info.calculation_name}")
+        return granted_time
 
 class HelicsSimulationExecutor:
 

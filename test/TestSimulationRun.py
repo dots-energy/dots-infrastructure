@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Thread
 import time
 from typing import List
@@ -183,9 +183,9 @@ class CalculationServiceElectricityCommodity(HelicsSimulationExecutor):
             SubscriptionDescription("EConnection", "EConnectionDispatch", "W", h.HelicsDataType.DOUBLE)
         ]
 
-        e_connection_period_in_seconds = 60
+        commodity_period_in_seconds = 60
 
-        calculation_information = HelicsCalculationInformation(e_connection_period_in_seconds, 0, False, False, True, "Loadflow", subscriptions_values, None, self.load_flow)
+        calculation_information = HelicsCalculationInformation(commodity_period_in_seconds, 0, False, False, True, "Loadflow", subscriptions_values, None, self.load_flow)
         self.add_calculation(calculation_information)
 
     def load_flow(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
@@ -216,7 +216,7 @@ class CalculationServiceMultiplePvInputsEConnection(HelicsSimulationExecutor):
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, pv_dispatch)
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch2", simulation_time, pv_dispatch2)
         return ret_val
-    
+
 class CalculationServiceEConnectionException(HelicsSimulationExecutor):
 
     def __init__(self):
@@ -300,6 +300,47 @@ class CalculationServicePVDispatchControlLoop(HelicsSimulationExecutor):
     def process_econnection_dispatch(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
         self.next_pv_dispatch = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "EConnectionDispatch") + 1
         self.influx_connector.set_time_step_data_point(esdl_id, "PV_Dispatch", simulation_time, self.next_pv_dispatch)
+        ret_val = {}
+        return ret_val
+
+class CalculationServiceEConnectionOffset(HelicsSimulationExecutor):
+    
+    def __init__(self):
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_connection
+        super().__init__()
+        self.influx_connector = InfluxDBMock()
+        publictations_values = [
+            PublicationDescription(True, "EConnection", "EConnection_DateTime", "Datetime", h.HelicsDataType.STRING)
+        ]
+        subscriptions_values = []
+        econnection_installation_period_in_seconds = 60
+        info = HelicsCalculationInformation(econnection_installation_period_in_seconds, 30, False, False, True, "econnection_calculation", subscriptions_values, publictations_values, self.econnection_calculation)
+        self.add_calculation(info)
+
+    def econnection_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        ret_val = {}
+        ret_val_datetime = simulation_time.strftime("%d-%m-%Y, %H:%M:%S")
+        ret_val["EConnection_DateTime"] = ret_val_datetime
+        return ret_val
+
+class CalculationServiceCarriersOffset(HelicsSimulationExecutor):
+
+    def __init__(self):
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_commonity
+        super().__init__()
+        self.influx_connector = InfluxDBMock()
+        subscriptions_values = [
+            SubscriptionDescription("EConnection", "EConnection_DateTime", "Datetime", h.HelicsDataType.STRING)
+        ]
+        carriers_period_in_seconds = 60
+        info = HelicsCalculationInformation(carriers_period_in_seconds, 0, False, False, True, "carrier_calculation", subscriptions_values, [], self.carrier_calculation)
+        self.add_calculation(info)
+
+    def carrier_calculation(self, param_dict : dict, simulation_time : datetime, time_step_number : TimeStepInformation, esdl_id : EsdlId, energy_system : EnergySystem):
+        received_datetime_str = CalculationServiceHelperFunctions.get_single_param_with_name(param_dict, "EConnection_DateTime")
+        received_datetime = datetime.strptime(received_datetime_str, "%d-%m-%Y, %H:%M:%S")
+        datetime_to_save = received_datetime + timedelta(seconds=10)
+        self.influx_connector.set_time_step_data_point(esdl_id, "EConnection_DateTime", simulation_time, datetime_to_save.strftime("%d-%m-%Y, %H:%M:%S"))
         ret_val = {}
         return ret_val
 
@@ -443,6 +484,25 @@ class TestSimulation(unittest.TestCase):
         # Assert
         actual_data_point_values_dispatch = [dp.value for dp in cs_dispatch.influx_connector.data_points ]
         self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
+
+    def test_given_a_calculation_service_has_offset_then_first_execution_is_at_offset_time(self):
+        # Arrange 
+        self.start_broker(1)
+        expected_data_point_values_dispatch = [datetime(2024, 1, 1, 0, 0, 40).strftime("%d-%m-%Y, %H:%M:%S"), datetime(2024, 1, 1, 0, 1, 40).strftime("%d-%m-%Y, %H:%M:%S")]
+
+        # Execute
+        cs_dispatch = CalculationServiceEConnectionOffset()
+        cs_electricity_commodity = CalculationServiceCarriersOffset()
+        cs_dispatch.start_simulation()
+        cs_electricity_commodity.start_simulation()
+        cs_dispatch.stop_simulation()
+        cs_electricity_commodity.stop_simulation()
+        self.stop_broker()
+
+        # Assert
+        actual_data_point_values_dispatch = [dp.value for dp in cs_electricity_commodity.influx_connector.data_points]
+        self.assertListEqual(expected_data_point_values_dispatch, actual_data_point_values_dispatch)
+
 
 if __name__ == '__main__':
     unittest.main()
