@@ -1,7 +1,7 @@
 import base64
 from datetime import datetime
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from esdl import EnergySystem
 import helics as h
@@ -107,7 +107,11 @@ class TestLogicRunningSimulation(unittest.TestCase):
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
         h.helicsFederateEnterExecutingMode = MagicMock()
         h.helicsFederateGetTimeProperty = MagicMock(return_value = 5)
-        h.helicsFederateRequestTime = MagicMock(return_value = 5)
+
+        def helics_request_time(a, b):
+            return b
+
+        h.helicsFederateRequestTime = MagicMock(side_effect=helics_request_time)
         h.helicsEndpointHasMessage = MagicMock(return_value = True)
         h.helicsEndpointGetMessage = MagicMock(return_value = None)
         h.helicsCreateMessageFederate = MagicMock(return_value = HelicsFederateMock())
@@ -186,7 +190,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
         self.federate_executor.enter_simulation_loop()
 
         # Assert
-        h.helicsFederateRequestTime.assert_called_once_with(None, 5)
+        h.helicsFederateRequestTime.assert_has_calls([call(None, 5), call(None, 10)])
 
     def test_when_time_request_type_on_input_helicsFederateRequestTime_called_with_helics_max_time(self):
         # arrange
@@ -208,6 +212,27 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
         # Assert
         h.helicsFederateRequestTime.assert_called_once_with(None, h.HELICS_TIME_MAXTIME)
+
+    def test_when_time_request_type_period_and_has_offset_helicsFederateRequestTime_called_with_offset(self):
+
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=2,
+                                                                        offset=1,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionSchedule", 
+                                                                        inputs=[], 
+                                                                        outputs=[], 
+                                                                        calculation_function=MagicMock(return_value=5),
+                                                                        time_request_type=TimeRequestType.PERIOD,
+                                                                        time_delta=0)
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
+
+        # Execute
+        self.federate_executor.enter_simulation_loop()
+
+        # Assert
+        h.helicsFederateRequestTime.assert_has_calls([call(None, 1), call(None, 3), call(None, 5), call(None, 7)])
 
     def test_calculation_is_not_executed_when_all_inputs_are_not_present(self):
 
