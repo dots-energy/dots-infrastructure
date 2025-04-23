@@ -1,0 +1,22 @@
+# Calculation service for esdl_type {{ esdl_type }}:
+
+{{description}}
+
+{% for calculation in calculations %}
+## {{ calculation.name }} 
+
+{{ calculation.description }}
+
+### Input parameters
+|Name            |esdl_type            |data_type            |unit            |description            |
+|----------------|---------------------|---------------------|----------------|-----------------------|
+{% for param in calculation.inputs %}
+|{{ param.name }}|{{ param.esdl_type }}|{{ param.data_type }}|{{ param.unit }}|{{ param.description }}|
+{% endfor %}
+### Output values
+|Name             |data_type             |unit             |description             |
+|-----------------|----------------------|-----------------|------------------------|
+{% for output in calculation.outputs %}
+|{{ output.name }}|{{ output.data_type }}|{{ output.unit }}|{{ output.description }}|
+{% endfor %}
+{% endfor %}
