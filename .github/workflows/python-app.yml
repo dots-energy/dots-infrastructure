@@ -43,3 +43,4 @@ jobs:
         python TestInfluxDbWriterLogic.py
         python TestInputExtraction.py
         python TestSimulationRun.py
+        python TestCalculationServiceHelperFunctions.py
