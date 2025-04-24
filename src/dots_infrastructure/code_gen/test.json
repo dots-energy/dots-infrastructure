@@ -2,6 +2,18 @@
     "name": "test",
     "esdl_type" : "PVInstallation",
     "description" : "this is a test description",
+    "relevant_links" : [
+        {
+            "name" : "test link",
+            "url" : "https://example.com/test",
+            "description" : "this is a test link"
+        },
+        {
+            "name" : "another test link",
+            "url" : "https://example.com/anothertest",
+            "description" : "this is another link"
+        }
+    ],
     "calculations" : [
         {
             "name": "test calculation",

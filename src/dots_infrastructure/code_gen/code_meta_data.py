@@ -32,8 +32,17 @@ class Calculation(DataClassJsonMixin):
 
 
 @dataclass
+class RelevantLink(DataClassJsonMixin):
+    name : str
+    url : str
+    description : str
+
+
+@dataclass
 class CalculationServiceMetaData(DataClassJsonMixin):
     name : str
     esdl_type : str
     description : str
     calculations : List[Calculation]
+    relevant_links : List[RelevantLink] | None = None
+    keywords : List[str] | None = None

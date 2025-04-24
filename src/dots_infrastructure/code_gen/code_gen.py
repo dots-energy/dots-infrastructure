@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
+from re import sub
 
 from dots_infrastructure.code_gen.code_meta_data import CalculationServiceMetaData
 
@@ -8,10 +9,13 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 JINJA_ENV = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 class CodeGenerator:
-    base_output_path: Path
 
-    def __init__(self, base_output_path: Path) -> None:
-        self.base_output_path = base_output_path
+    def camel_case(self, s):
+        s = sub(r"(_|-| )+", " ", s).title().replace(" ", "")
+        return ''.join([s[0].upper(), s[1:]])
+    
+    def get_python_filename(self, s):
+        return sub(r"(_|-| )+", " ", s).lower().replace(" ", "_")
 
     def render_template(self, template_path: Path, output_dir: Path, output_file: Path, **data):
         # jinja expects a string, representing a relative path with forward slashes
@@ -32,14 +36,16 @@ class CodeGenerator:
         for calculation in dataset_meta_data.calculations:
             calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
 
-        output_file = output_dir / f"{dataset_meta_data.name}Base.py"
+        class_name = self.camel_case(dataset_meta_data.name)
+        file_name = self.get_python_filename(dataset_meta_data.name)
+        output_file = output_dir / f"{file_name}_base.py"
 
         self.render_template(
             template_path=template_path,
             output_dir=output_dir,
             output_file=output_file,
             calculations=dataset_meta_data.calculations,
-            name=dataset_meta_data.name,
+            name=class_name,
             esdl_type=dataset_meta_data.esdl_type
         )
 
@@ -48,6 +54,8 @@ class CodeGenerator:
 
         output_file = output_dir / f"{dataset_meta_data.name}.md"
 
+        dataset_meta_data.relevant_links = [] if dataset_meta_data.relevant_links is None else dataset_meta_data.relevant_links
+
         self.render_template(
             template_path=template_path,
             output_dir=output_dir,
@@ -55,19 +63,21 @@ class CodeGenerator:
             calculations=dataset_meta_data.calculations,
             name=dataset_meta_data.name,
             esdl_type=dataset_meta_data.esdl_type,
-            description=dataset_meta_data.description
+            description=dataset_meta_data.description,
+            relevant_links=dataset_meta_data.relevant_links
         )
 
-    def code_gen(self, input : str, output_dir : str):
+    def code_gen(self, input : str, code_output_dir : str, documentation_ouput_dir : str):
         render_funcs = {
-            "calculation_service": self.render_calculation_service,
-            "cs_documentation": self.render_documentation,
+            "calculation_service": (self.render_calculation_service, code_output_dir),
+            "cs_documentation": (self.render_documentation, documentation_ouput_dir)
         }
 
         # render attribute classes
-        for template_name, render_func in render_funcs.items():
+        for template_name, render_func_output_pair in render_funcs.items():
             for template_path in TEMPLATE_DIR.rglob(f"{template_name}.*.jinja"):
-                output_dir = Path(output_dir)
+                render_func = render_func_output_pair[0]
+                output_dir = Path(render_func_output_pair[1])
                 output_path = output_dir 
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 print(f"Generating file: {output_path}")
