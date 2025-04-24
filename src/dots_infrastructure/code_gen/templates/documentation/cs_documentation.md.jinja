@@ -4,12 +4,14 @@
 
 {{description}}
 
+## Calculations
+
 {% for calculation in calculations %}
-## {{ calculation.name }} 
+### {{ calculation.name }} 
 
 {{ calculation.description }}
 {% if calculation.inputs is defined and calculation.inputs|length > 0 %}
-### Input parameters
+#### Input parameters
 |Name            |esdl_type            |data_type            |unit            |description            |
 |----------------|---------------------|---------------------|----------------|-----------------------|
 {% for param in calculation.inputs %}
@@ -17,7 +19,7 @@
 {% endfor %}
 {% endif %}
 {% if calculation.outputs is defined and calculation.outputs|length > 0 %}
-### Output values
+#### Output values
 |Name             |data_type             |unit             |description             |
 |-----------------|----------------------|-----------------|------------------------|
 {% for output in calculation.outputs %}
