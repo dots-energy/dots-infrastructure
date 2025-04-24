@@ -1,4 +1,3 @@
-from copy import deepcopy
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -18,6 +17,8 @@ class CodeGenerator:
         # jinja expects a string, representing a relative path with forward slashes
         template_path_str = str(template_path.relative_to(TEMPLATE_DIR)).replace("\\", "/")
         template = JINJA_ENV.get_template(template_path_str)
+        JINJA_ENV.trim_blocks = True
+        JINJA_ENV.lstrip_blocks = True
 
         output = template.render(**data)
         output_dir.mkdir(parents=True, exist_ok=True)
