@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import dataclasses
 from datetime import timedelta
 import math
 import traceback
@@ -296,6 +297,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
                     if not terminate_requested:
                         LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Executing calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
                         pub_values = self.helics_value_federate_info.calculation_function(calculation_params[esdl_id], simulator_time, time_step_information, esdl_id, self.energy_system)
+
+                        if dataclasses.is_dataclass(pub_values):
+                            pub_values = dataclasses.asdict(pub_values)
+
                         LOGGER.info(f"[{h.helicsFederateGetName(self.value_federate)}] Finished calculation {self.helics_value_federate_info.calculation_name} for esdl_id {esdl_id} at time {granted_time}")
                         self._publish_outputs(esdl_id, pub_values)
                         calculation_params[esdl_id] = CalculationServiceHelperFunctions.clear_dictionary_values(calculation_params[esdl_id])

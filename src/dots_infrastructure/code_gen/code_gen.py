@@ -10,12 +10,26 @@ JINJA_ENV = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 class CodeGenerator:
 
+    helics_data_type_to_python_data_type = {
+        "STRING" : "str",
+        "DOUBLE" : "float",
+        "INT" : "int",
+        "COMPLEX" : "complex",
+        "VECTOR" : "List",
+        "COMPLEX_VECTOR" : "List[complex]",
+        "BOOLEAN" : "bool",
+        "TIME" : "int"
+    }
+
     def camel_case(self, s):
         s = sub(r"(_|-| )+", " ", s).title().replace(" ", "")
         return ''.join([s[0].upper(), s[1:]])
     
     def get_python_filename(self, s):
         return sub(r"(_|-| )+", " ", s).lower().replace(" ", "_")
+    
+    def get_base_class_name(self, class_name):
+        return f'{class_name}Base'
 
     def render_template(self, template_path: Path, output_dir: Path, output_file: Path, **data):
         # jinja expects a string, representing a relative path with forward slashes
@@ -33,10 +47,8 @@ class CodeGenerator:
 
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
 
-        for calculation in dataset_meta_data.calculations:
-            calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
-
         class_name = self.camel_case(dataset_meta_data.name)
+        base_class_name = self.get_base_class_name(class_name)
         file_name = self.get_python_filename(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_base.py"
 
@@ -45,8 +57,29 @@ class CodeGenerator:
             output_dir=output_dir,
             output_file=output_file,
             calculations=dataset_meta_data.calculations,
-            name=class_name,
+            name=base_class_name,
             esdl_type=dataset_meta_data.esdl_type
+        )
+
+    def render_output_dataclasses(self, template_path: Path, json_data : str, output_dir: Path):
+        dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
+
+        file_name = self.get_python_filename(dataset_meta_data.name)
+        output_file = output_dir / f"{file_name}_dataclasses.py"
+
+        for calculation in dataset_meta_data.calculations:
+            calculation.calculation_output_class_name = f"{self.camel_case(calculation.name)}Output"
+            for output in calculation.outputs:
+                if output.data_type in self.helics_data_type_to_python_data_type:
+                    output.python_data_type = self.helics_data_type_to_python_data_type[output.data_type]
+                else:
+                    raise ValueError(f"Unsupported helics data type: {output.data_type}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+                
+        self.render_template(
+            template_path=template_path,
+            output_dir=output_dir,
+            output_file=output_file,
+            calculations=dataset_meta_data.calculations
         )
 
     def render_documentation(self, template_path: Path, json_data : str, output_dir: Path):
@@ -70,7 +103,8 @@ class CodeGenerator:
     def code_gen(self, input : str, code_output_dir : str, documentation_ouput_dir : str):
         render_funcs = {
             "calculation_service": (self.render_calculation_service, code_output_dir),
-            "cs_documentation": (self.render_documentation, documentation_ouput_dir)
+            "cs_documentation": (self.render_documentation, documentation_ouput_dir),
+            "cs_data_classes": (self.render_output_dataclasses, code_output_dir)
         }
 
         # render attribute classes
