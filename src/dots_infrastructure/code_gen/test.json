@@ -24,7 +24,7 @@
                 {
                     "name" : "input1",
                     "esdl_type" : "Weather",
-                    "data_type" : "DOUBLE",
+                    "data_type" : "STRING",
                     "description" : "input 1 description",
                     "unit" : "K"
                 }

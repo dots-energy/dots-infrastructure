@@ -43,6 +43,12 @@ class CodeGenerator:
         with output_file.open(mode="w", encoding="utf-8") as output_file:
             output_file.write(output)
 
+    def _extract_valid_python_datatype(self, data_type : str, name : str):
+        if data_type in self.helics_data_type_to_python_data_type:
+            return self.helics_data_type_to_python_data_type[data_type]
+        else:
+            raise ValueError(f"Unsupported helics data type: {data_type} for {name}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+
     def render_calculation_service(self, template_path: Path, json_data : str, output_dir: Path):
 
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
@@ -56,8 +62,10 @@ class CodeGenerator:
             calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
             for input in calculation.inputs:
                 input.python_name = self.get_python_name(input.name)
+                self._extract_valid_python_datatype(input.data_type, input.name)
             for output in calculation.outputs:
                 output.python_name = self.get_python_name(output.name)
+                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
 
         self.render_template(
             template_path=template_path,
@@ -77,10 +85,7 @@ class CodeGenerator:
         for calculation in dataset_meta_data.calculations:
             calculation.calculation_output_class_name = f"{self.camel_case(calculation.name)}Output"
             for output in calculation.outputs:
-                if output.data_type in self.helics_data_type_to_python_data_type:
-                    output.python_data_type = self.helics_data_type_to_python_data_type[output.data_type]
-                else:
-                    raise ValueError(f"Unsupported helics data type: {output.data_type}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
                 output.python_name = self.get_python_name(output.name)
                 
         self.render_template(
@@ -122,6 +127,6 @@ class CodeGenerator:
                 output_dir = Path(render_func_output_pair[1])
                 output_path = output_dir 
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                print(f"Generating file: {output_path}")
+                print(f"Generating file in {output_path}")
                 render_func(template_path=template_path, json_data=input, output_dir=output_path)
 
