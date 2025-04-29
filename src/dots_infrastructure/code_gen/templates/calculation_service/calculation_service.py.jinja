@@ -16,7 +16,7 @@ class {{name}}(HelicsSimulationExecutor):
         {{calculation.calculation_function_name}}_inputs = [
         {% for input in calculation.inputs %}
             SubscriptionDescription(esdl_type="{{input.esdl_type}}", 
-                                    input_name="{{input.name}}", 
+                                    input_name="{{input.python_name}}", 
                                     input_unit="{{input.unit}}", 
                                     input_type=h.HelicsDataType.{{input.data_type}}),
 
@@ -26,7 +26,7 @@ class {{name}}(HelicsSimulationExecutor):
         {% for output in calculation.outputs %}
             PublicationDescription(global_flag=True, 
                                     esdl_type="{{esdl_type}}",
-                                    output_name="{{output.name}}",
+                                    output_name="{{output.python_name}}",
                                     output_unit="{{output.unit}}", 
                                     output_type="{{output.data_type}}"),
 

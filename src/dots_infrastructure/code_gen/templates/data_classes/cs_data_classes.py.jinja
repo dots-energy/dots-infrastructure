@@ -6,7 +6,7 @@ from typing import List
 @dataclass
 class {{calculation.calculation_output_class_name}}:
 {% for output in calculation.outputs %}
-    {{output.name}} : {{output.python_data_type}} | None = None
+    {{output.python_name}} : {{output.python_data_type}} | None = None
 {% endfor %}
 {% endif %}
 

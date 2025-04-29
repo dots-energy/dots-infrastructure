@@ -10,6 +10,7 @@ class CalculationServiceInputData(DataClassJsonMixin):
     description : str
     unit : str
     data_type : str
+    python_name : str | None = None
 
 
 @dataclass
@@ -19,6 +20,7 @@ class CalculationServiceOutputData(DataClassJsonMixin):
     unit : str
     data_type : str
     python_data_type : str | None = None
+    python_name : str | None = None
 
 
 @dataclass

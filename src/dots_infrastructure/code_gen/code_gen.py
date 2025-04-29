@@ -25,7 +25,7 @@ class CodeGenerator:
         s = sub(r"(_|-| )+", " ", s).title().replace(" ", "")
         return ''.join([s[0].upper(), s[1:]])
     
-    def get_python_filename(self, s):
+    def get_python_name(self, s):
         return sub(r"(_|-| )+", " ", s).lower().replace(" ", "_")
     
     def get_base_class_name(self, class_name):
@@ -49,11 +49,15 @@ class CodeGenerator:
 
         class_name = self.camel_case(dataset_meta_data.name)
         base_class_name = self.get_base_class_name(class_name)
-        file_name = self.get_python_filename(dataset_meta_data.name)
+        file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_base.py"
 
         for calculation in dataset_meta_data.calculations:
             calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
+            for input in calculation.inputs:
+                input.python_name = self.get_python_name(input.name)
+            for output in calculation.outputs:
+                output.python_name = self.get_python_name(output.name)
 
         self.render_template(
             template_path=template_path,
@@ -67,7 +71,7 @@ class CodeGenerator:
     def render_output_dataclasses(self, template_path: Path, json_data : str, output_dir: Path):
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
 
-        file_name = self.get_python_filename(dataset_meta_data.name)
+        file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_dataclasses.py"
 
         for calculation in dataset_meta_data.calculations:
@@ -77,6 +81,7 @@ class CodeGenerator:
                     output.python_data_type = self.helics_data_type_to_python_data_type[output.data_type]
                 else:
                     raise ValueError(f"Unsupported helics data type: {output.data_type}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+                output.python_name = self.get_python_name(output.name)
                 
         self.render_template(
             template_path=template_path,
