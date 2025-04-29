@@ -1,5 +1,7 @@
 import base64
+from dataclasses import dataclass
 from datetime import datetime
+from typing import List
 import unittest
 from unittest.mock import MagicMock, call, patch
 
@@ -17,6 +19,12 @@ LOGGER.disabled = True
 
 def simulator_environment_e_logic_test():
     return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"])
+
+@dataclass
+class TestDataClass:
+    output1 : str
+    output2 : int
+    output3 : List
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -307,6 +315,33 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
         # Assert
         calculation_function.assert_called_once_with(param_dict, datetime(2024, 1, 1, 0, 0, 5), TimeStepInformation(1, 1), 'f006d594-0743-4de5-a589-a6c2350898da', None)
+
+    def test_calculation_can_provide_dataclasses_as_output(self):
+        calculation_function = MagicMock(return_value=TestDataClass(output1="test", output2=5, output3=[1, 2, 3]))
+        # arrange
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionSchedule", 
+                                                                        inputs=[], 
+                                                                        outputs=[], 
+                                                                        calculation_function=calculation_function)
+
+        self.federate_executor = HelicsValueFederateExecutor(calculation_information_schedule)
+        self.federate_executor._publish_outputs = MagicMock()
+
+        # Execute
+        self.federate_executor.enter_simulation_loop()
+
+        # Assert
+        expected_output_dict = {
+            "output1": "test",
+            "output2": 5,
+            "output3": [1, 2, 3]
+        }
+        self.federate_executor._publish_outputs.assert_called_once_with('f006d594-0743-4de5-a589-a6c2350898da', expected_output_dict)
 
     def test_add_calculation_sets_correct_delta_and_period_values(self):
         calculation_function = MagicMock()

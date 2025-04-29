@@ -44,3 +44,4 @@ jobs:
         python TestInputExtraction.py
         python TestSimulationRun.py
         python TestCalculationServiceHelperFunctions.py
+        python TestCodeGenerator.py
