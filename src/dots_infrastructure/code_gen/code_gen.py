@@ -52,6 +52,9 @@ class CodeGenerator:
         file_name = self.get_python_filename(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_base.py"
 
+        for calculation in dataset_meta_data.calculations:
+            calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
+
         self.render_template(
             template_path=template_path,
             output_dir=output_dir,
