@@ -42,7 +42,8 @@ def generate_publications_from_value_descriptions(value_descriptions : List[Publ
 
 def get_single_param_with_name(param_dict : dict, name : str):
     for key in param_dict.keys():
-        if name in key:
+        key_splitted = key.split("/")
+        if any(name == key_part for key_part in key_splitted):
             return param_dict[key]
         
 def clear_dictionary_values(dictionary_to_clear : dict):
@@ -52,4 +53,4 @@ def dictionary_has_values_for_all_keys(dictionary : dict):
     return all([False if v == None else True for v in dictionary.values()])
 
 def get_vector_param_with_name(param_dict : dict, name : str):
-    return [value for key, value in param_dict.items() if name in key]
+    return [value for key, value in param_dict.items() if any(name == key_part for key_part in key.split("/"))]
