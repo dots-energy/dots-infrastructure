@@ -162,7 +162,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Got value: {ret_val} from {helics_sub.helics_sub_key}")
 
         if ret_val == None:
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Input not yet present: {helics_sub.helics_sub_key}")
+            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] No new value for input: {helics_sub.helics_sub_key}")
         return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
