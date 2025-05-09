@@ -162,7 +162,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Got value: {ret_val} from {helics_sub.helics_sub_key}")
 
         if ret_val == None:
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Input not yet present: {helics_sub.helics_sub_key}")
+            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] No new value for input: {helics_sub.helics_sub_key}")
         return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
@@ -265,13 +265,11 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         input_dict = self._init_input_dict()
         self._gather_new_inputs(calculation_params, input_dict)
         new_granted_time = granted_time
-        max_amount_of_retries = len([value for value in input_dict.values() if value == None])
-        amount_of_retries = 0
-        while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict) and amount_of_retries < max_amount_of_retries:
+        
+        while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict):
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] requesting max time again to wait for new inputs")
             new_granted_time = h.helicsFederateRequestTime(self.value_federate, h.HELICS_TIME_MAXTIME)
             self._gather_new_inputs(calculation_params, input_dict)
-            amount_of_retries += 1
         return new_granted_time
 
     def enter_simulation_loop(self):
