@@ -24,12 +24,15 @@ class CalculationNode:
 
 def generate_messages(calculations : List[CalculationNode]) -> List[SequenceDiagramMessage]:
     messages = []
-    while len(calculations) > 0:
-        calculation_roots = [calculation for calculation in calculations if len(calculation.inputs) == 0]
+    
+    calculation_roots = [calculation for calculation in calculations if len(calculation.inputs) == 0]
+    for calculation_root in calculation_roots:
+        new_msg = SequenceDiagramMessage(sender=calculation_root.origin_type, reciever=calculation_root.origin_type, message=calculation_root.calculation_name)
+        messages.append(new_msg)
+
+    while len(calculation_roots) > 0:
         for calculation_root in calculation_roots:
             calculations.remove(calculation_root)
-
-        for calculation_root in calculation_roots:
             calculation_children = [calculation for calculation in calculations if calculation_root.origin_type in [input.esdl_type for input in calculation.inputs]]
             for calculation_child in calculation_children:
                 inputs_to_remove = []
@@ -43,6 +46,8 @@ def generate_messages(calculations : List[CalculationNode]) -> List[SequenceDiag
                     calculation_child.inputs.remove(input_to_remove)
                 if len(calculation_child.inputs) == 0:
                     messages.append(SequenceDiagramMessage(sender=calculation_child.origin_type, reciever=calculation_child.origin_type, message=f"Execute {calculation_child.calculation_name}"))
+        calculation_roots = [calculation for calculation in calculations if len(calculation.inputs) == 0]
+
     return messages
 
 
