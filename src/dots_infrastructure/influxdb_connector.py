@@ -15,7 +15,7 @@
 import typing
 
 from datetime import datetime
-from dots_infrastructure.DataClasses import EsdlId, SimulaitonDataPoint
+from dots_infrastructure.DataClasses import EsdlId
 from dots_infrastructure.Logger import LOGGER
 from influxdb import InfluxDBClient
 
@@ -105,30 +105,26 @@ class InfluxDBConnector:
         self.simulation_id = simulation_id
         self.esdl_type = esdl_type
         self.model_id = model_id
-        self.data_points : typing.List[SimulaitonDataPoint] = []
+        self.data_points : typing.List[dict] = []
         self.esdl_objects = esdl_objects
 
     def set_time_step_data_point(
         self, esdl_id: EsdlId, output_name: str, simulation_datetime: datetime, value: float
     ):
-        self.data_points.append(SimulaitonDataPoint(output_name, simulation_datetime, value, esdl_id))
+        fields = {
+            output_name : value
+        }
+        self.data_points.append(self.add_measurement(esdl_id, simulation_datetime, fields))
+        MAX_AMOUNT_OF_DB_POINTS = 100000
+        if len(self.data_points) >= MAX_AMOUNT_OF_DB_POINTS:
+            LOGGER.debug(f"Writing {len(self.data_points)} data points to InfluxDB")
+            self.write_output()
+            self.data_points.clear()
 
     def write_output(self):
-        points = list()
+        self.write(self.data_points)
 
-        for data_point in self.data_points:
-            fields = {
-                data_point.output_name : data_point.value
-            }
-            self.add_measurement(points, data_point.esdl_id, data_point.datapoint_time, fields)
-
-        LOGGER.info(
-            f"InfluxDB writing {len(points)} points to measurement '{self.esdl_type}'"
-            f" with tag simulationRun {self.simulation_id}"
-        )
-        self.write(points)
-
-    def add_measurement(self, points, esdl_id, timestamp, fields):
+    def add_measurement(self, esdl_id, timestamp, fields):
         try:
             if hasattr(self.esdl_objects[esdl_id], "name"):
                 esdl_name = self.esdl_objects[esdl_id].name
@@ -145,6 +141,6 @@ class InfluxDBConnector:
                 "time": timestamp,
                 "fields": fields,
             }
-            points.append(item)
+            return item
         except Exception as e:
             LOGGER.debug(f"Exception: {e} {e.args}")
