@@ -166,7 +166,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
-        LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Publishing value: {value} for publication: {helics_output.helics_publication.name} with type: {helics_output.output_type}")
+        LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Publishing value: {value} for publication: {helics_output.helics_publication.name} with type: {helics_output.output_type.name}")
         pub = helics_output.helics_publication
         output_type = helics_output.output_type
         if output_type == h.HelicsDataType.BOOLEAN:

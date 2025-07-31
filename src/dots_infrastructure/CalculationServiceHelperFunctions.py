@@ -30,6 +30,7 @@ def get_simulator_configuration_from_environment() -> SimulatorConfiguration:
     influx_password = os.getenv("INFLUXDB_PASSWORD")
     influx_database_name = os.getenv("INFLUXDB_NAME")
     log_level = os.getenv("log_level", "INFO") 
+    LOGGER.info(f"Using log level {log_level.upper()}")
     LOGGER.setLevel(log_level.upper())
     return SimulatorConfiguration(esdl_type, esdl_ids, model_id, broker_ip, broker_port,simulation_id, simulation_duration_in_seconds, start_time_datetime, influx_host, influx_port, influx_username, influx_password, influx_database_name, log_level_to_helics_log_level[log_level], calculation_services)
 
