@@ -12,7 +12,7 @@
 #  Manager:
 #      TNO
 
-import typing, numpy
+import typing
 
 from datetime import datetime
 from dots_infrastructure.DataClasses import EsdlId, SimulaitonDataPoint
