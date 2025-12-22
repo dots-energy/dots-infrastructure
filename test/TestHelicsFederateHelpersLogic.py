@@ -3,15 +3,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List
 import unittest
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, call, ANY
 
 from esdl import EnergySystem
 import helics as h
 
 from dots_infrastructure import CalculationServiceHelperFunctions, Common
 from dots_infrastructure.Constants import TimeRequestType
-from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, HelicsMessageFederateInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
-from dots_infrastructure.HelicsFederateHelpers import HelicsEsdlMessageFederateExecutor, HelicsValueFederateExecutor, HelicsSimulationExecutor
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, HelicsInitMessagesFederateInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.HelicsFederateHelpers import HelicsInitializationMessagesFederateExecutor, HelicsValueFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.HelicsMocks import HelicsEndpointMock, HelicsFederateMock
 
@@ -110,6 +110,9 @@ class TestLogicRunningSimulation(unittest.TestCase):
         self.helics_endpoint_get_message = h.helicsEndpointGetMessage
         self.helics_create_message_federate = h.helicsCreateMessageFederate
         self.helics_federate_register_endpoint = h.helicsFederateRegisterEndpoint
+        self.helics_message_set_string = h.helicsMessageSetString
+        self.helics_message_set_destination = h.helicsMessageSetDestination
+        self.helics_endpoint_send_message = h.helicsEndpointSendMessage
         self.common_destroy_federate = Common.destroy_federate
         h.helicsFederateGetName = MagicMock(return_value = "LogicTest")
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
@@ -124,6 +127,10 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsEndpointGetMessage = MagicMock(return_value = None)
         h.helicsCreateMessageFederate = MagicMock(return_value = HelicsFederateMock())
         h.helicsFederateRegisterEndpoint = MagicMock(return_value = HelicsEndpointMock())
+        
+        h.helicsMessageSetString = MagicMock()
+        h.helicsMessageSetDestination = MagicMock()
+        h.helicsEndpointSendMessage = MagicMock()
         Common.destroy_federate = MagicMock()
 
     def tearDown(self):
@@ -137,6 +144,9 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsCreateMessageFederate = self.helics_create_message_federate 
         h.helicsFederateRegisterEndpoint = self.helics_federate_register_endpoint
         h.helicsEndpointGetMessage = self.helics_endpoint_get_message
+        h.helicsMessageSetString = self.helics_message_set_string
+        h.helicsMessageSetDestination = self.helics_message_set_destination
+        h.helicsEndpointSendMessage = self.helics_endpoint_send_message
         Common.destroy_federate = self.common_destroy_federate
 
     def test_helics_simulation_loop_started_correctly(self):
@@ -385,7 +395,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
     def test_given_waiting_for_esdl_when_full_esdl_is_received_esdl_helper_is_correctly_constructed(self):
         # arrange
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation('esdl'))
+        esdl_message_federate = HelicsInitializationMessagesFederateExecutor(HelicsInitMessagesFederateInformation('esdl', 'amount_of_calculations'))
         esdl_message_federate.init_federate()
 
         self.i = 0
@@ -403,7 +413,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
 
     def test_given_waiting_for_esdl_when_full_esdl_is_received_in_parts_esdl_helper_is_correctly_constructed(self):
         # arrange
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation('esdl'))
+        esdl_message_federate = HelicsInitializationMessagesFederateExecutor(HelicsInitMessagesFederateInformation('esdl', 'amount_of_calculations'))
         esdl_message_federate.init_federate()
 
         self.i = 0
@@ -424,6 +434,41 @@ class TestLogicRunningSimulation(unittest.TestCase):
         helper = esdl_message_federate.wait_for_esdl_file()
 
         self.assertIsNotNone(helper)
+
+    def test_given_federate_executor_is_not_initialized_when_initialized_amount_of_calculations_are_send(self):
+        calculation_function = MagicMock()
+
+        # arrange
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionSchedule", 
+                                                                        inputs=[CalculationServiceInput("test-type", "test-input", "test-input-id", "W", h.HelicsDataType.DOUBLE, "test-id", "test-input-key"),], 
+                                                                        outputs=[], 
+                                                                        calculation_function=calculation_function)
+        
+        calculation_information_dispatch = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="EConnectionDispatch", 
+                                                                        inputs=[], 
+                                                                        outputs=[CalculationServiceOutput(True, "test-type", "test-output", "test-output-id", h.HelicsDataType.DOUBLE, "W")], 
+                                                                        calculation_function=calculation_function)
+        simulation_executor = HelicsSimulationExecutor()
+        simulation_executor.add_calculation(calculation_information_schedule)
+        simulation_executor.add_calculation(calculation_information_dispatch)
+        broker_endpoint = "broker_endpoint_amount_of_calculations"
+
+        # Execute
+        simulation_executor.init_simulation()
+        # Assert
+        h.helicsMessageSetString.assert_called_once_with(ANY, "2")
+        h.helicsMessageSetDestination.assert_called_once_with(ANY, broker_endpoint)
+        h.helicsEndpointSendMessage.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()

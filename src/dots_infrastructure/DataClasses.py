@@ -29,8 +29,9 @@ class CalculationServiceOutput:
     helics_publication : h.HelicsPublication = None
 
 @dataclass
-class HelicsMessageFederateInformation:
-    endpoint_name : str
+class HelicsInitMessagesFederateInformation:
+    esdl_endpoint_name : str
+    amount_of_calculations_endpoint_name : str
 
 @dataclass
 class SubscriptionDescription:
