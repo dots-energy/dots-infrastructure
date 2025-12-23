@@ -56,7 +56,7 @@ class HelicsInitializationMessagesFederateExecutor(HelicsFederateExecutor):
         amount_of_calculations_message = h.helicsEndpointCreateMessage(self.amount_of_calculations_endpoint)
         LOGGER.debug(f"Sending amount of calculations value: {amount_of_calculations}")
         broker_endpoint = "broker_endpoint_amount_of_calculations"
-        h.helicsMessageSetString(amount_of_calculations_message, str(amount_of_calculations_message))
+        h.helicsMessageSetString(amount_of_calculations_message, str(amount_of_calculations))
         h.helicsMessageSetDestination(amount_of_calculations_message, broker_endpoint)
         h.helicsEndpointSendMessage(self.amount_of_calculations_endpoint, amount_of_calculations_message)
 

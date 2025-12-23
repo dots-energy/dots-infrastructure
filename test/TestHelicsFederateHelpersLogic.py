@@ -113,6 +113,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
         self.helics_message_set_string = h.helicsMessageSetString
         self.helics_message_set_destination = h.helicsMessageSetDestination
         self.helics_endpoint_send_message = h.helicsEndpointSendMessage
+        self.helics_endpoint_create_message = h.helicsEndpointCreateMessage
         self.common_destroy_federate = Common.destroy_federate
         h.helicsFederateGetName = MagicMock(return_value = "LogicTest")
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
@@ -131,6 +132,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsMessageSetString = MagicMock()
         h.helicsMessageSetDestination = MagicMock()
         h.helicsEndpointSendMessage = MagicMock()
+        h.helicsEndpointCreateMessage = MagicMock()
         Common.destroy_federate = MagicMock()
 
     def tearDown(self):
@@ -147,6 +149,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsMessageSetString = self.helics_message_set_string
         h.helicsMessageSetDestination = self.helics_message_set_destination
         h.helicsEndpointSendMessage = self.helics_endpoint_send_message
+        h.helicsEndpointCreateMessage = self.helics_endpoint_create_message
         Common.destroy_federate = self.common_destroy_federate
 
     def test_helics_simulation_loop_started_correctly(self):
@@ -463,8 +466,17 @@ class TestLogicRunningSimulation(unittest.TestCase):
         simulation_executor.add_calculation(calculation_information_dispatch)
         broker_endpoint = "broker_endpoint_amount_of_calculations"
 
+        self.i = 0
+        def helics_request_time(a, b):
+            self.i += 1
+            return 5 if self.i <= 2 else h.HELICS_TIME_MAXTIME
+
+        h.helicsFederateRequestTime = MagicMock(side_effect=helics_request_time)
+        h.helicsMessageGetBytes = MagicMock(return_value=self.encoded_base64_esdl.encode())
+
         # Execute
         simulation_executor.init_simulation()
+
         # Assert
         h.helicsMessageSetString.assert_called_once_with(ANY, "2")
         h.helicsMessageSetDestination.assert_called_once_with(ANY, broker_endpoint)

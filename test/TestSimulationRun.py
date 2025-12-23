@@ -358,6 +358,7 @@ class TestSimulation(unittest.TestCase):
         self.esdl_message_init_federate = HelicsInitializationMessagesFederateExecutor.init_federate 
         self.calculationServiceHelperFunctions_get_simulator_configuration_from_environment = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment
         HelicsInitializationMessagesFederateExecutor.wait_for_esdl_file = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
+        HelicsInitializationMessagesFederateExecutor.send_amount_of_calculations = MagicMock()
         HelicsInitializationMessagesFederateExecutor.init_federate = MagicMock()
         LOGGER.setLevel("DEBUG")
 
