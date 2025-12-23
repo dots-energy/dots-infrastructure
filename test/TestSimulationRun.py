@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 from dots_infrastructure import CalculationServiceHelperFunctions
 from dots_infrastructure.DataClasses import EsdlId, HelicsCalculationInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.EsdlHelper import EsdlHelper
-from dots_infrastructure.HelicsFederateHelpers import HelicsEsdlMessageFederateExecutor, HelicsSimulationExecutor
+from dots_infrastructure.HelicsFederateHelpers import HelicsInitializationMessagesFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
 from esdl.esdl import EnergySystem
@@ -354,16 +354,17 @@ class TestSimulation(unittest.TestCase):
         with open("test.esdl", mode="r") as esdl_file:
             encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
-        self.wait_for_esdl_file = HelicsEsdlMessageFederateExecutor.wait_for_esdl_file
-        self.esdl_message_init_federate = HelicsEsdlMessageFederateExecutor.init_federate 
+        self.wait_for_esdl_file = HelicsInitializationMessagesFederateExecutor.wait_for_esdl_file
+        self.esdl_message_init_federate = HelicsInitializationMessagesFederateExecutor.init_federate 
         self.calculationServiceHelperFunctions_get_simulator_configuration_from_environment = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment
-        HelicsEsdlMessageFederateExecutor.wait_for_esdl_file = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
-        HelicsEsdlMessageFederateExecutor.init_federate = MagicMock()
+        HelicsInitializationMessagesFederateExecutor.wait_for_esdl_file = MagicMock(return_value=EsdlHelper(encoded_base64_esdl))
+        HelicsInitializationMessagesFederateExecutor.send_amount_of_calculations = MagicMock()
+        HelicsInitializationMessagesFederateExecutor.init_federate = MagicMock()
         LOGGER.setLevel("DEBUG")
 
     def tearDown(self):
-        HelicsEsdlMessageFederateExecutor.wait_for_esdl_file = self.wait_for_esdl_file 
-        HelicsEsdlMessageFederateExecutor.init_federate = self.esdl_message_init_federate 
+        HelicsInitializationMessagesFederateExecutor.wait_for_esdl_file = self.wait_for_esdl_file 
+        HelicsInitializationMessagesFederateExecutor.init_federate = self.esdl_message_init_federate 
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = self.calculationServiceHelperFunctions_get_simulator_configuration_from_environment
 
     def start_broker(self, n_federates):

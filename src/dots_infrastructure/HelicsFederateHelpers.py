@@ -9,7 +9,7 @@ from esdl import esdl
 
 from dots_infrastructure import Common
 from dots_infrastructure.Constants import TimeRequestType
-from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsMessageFederateInformation, PublicationDescription, RunningStatus, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, HelicsCalculationInformation, HelicsInitMessagesFederateInformation, PublicationDescription, RunningStatus, SubscriptionDescription, TimeStepInformation
 from dots_infrastructure.EsdlHelper import EsdlHelper
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure import CalculationServiceHelperFunctions
@@ -38,17 +38,27 @@ class HelicsFederateExecutor:
         h.helicsFederateInfoSetFlagOption(federate_info, h.HelicsFlag.TERMINATE_ON_ERROR, info.terminate_on_error)
         return federate_info
 
-class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
-    def __init__(self, info : HelicsMessageFederateInformation):
+class HelicsInitializationMessagesFederateExecutor(HelicsFederateExecutor):
+    def __init__(self, info : HelicsInitMessagesFederateInformation):
         super().__init__()
         self.helics_message_federate_information = info
         self.message_federate = None
-        self.message_enpoint = None
+        self.esdl_message_enpoint = None
 
     def init_federate(self):
         federate_info = self.init_default_federate_info()
         self.message_federate = h.helicsCreateMessageFederate(f"{self.simulator_configuration.model_id}", federate_info)
-        self.message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.endpoint_name)
+        self.esdl_message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.esdl_endpoint_name)
+        self.amount_of_calculations_endpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.amount_of_calculations_endpoint_name)
+
+    def send_amount_of_calculations(self, amount_of_calculations : int, time_to_request : float):
+        h.helicsFederateRequestTime(self.message_federate, time_to_request)
+        amount_of_calculations_message = h.helicsEndpointCreateMessage(self.amount_of_calculations_endpoint)
+        LOGGER.debug(f"Sending amount of calculations value: {amount_of_calculations}")
+        broker_endpoint = "broker_endpoint_amount_of_calculations"
+        h.helicsMessageSetString(amount_of_calculations_message, str(amount_of_calculations))
+        h.helicsMessageSetDestination(amount_of_calculations_message, broker_endpoint)
+        h.helicsEndpointSendMessage(self.amount_of_calculations_endpoint, amount_of_calculations_message)
 
     def wait_for_esdl_file(self) -> EsdlHelper:
         h.helicsFederateEnterExecutingMode(self.message_federate)
@@ -56,8 +66,8 @@ class HelicsEsdlMessageFederateExecutor(HelicsFederateExecutor):
         while h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME) != h.HELICS_TIME_MAXTIME:
             LOGGER.debug("Fetching an esdl message string at time")
             esdl_file_base64_part = ""
-            if h.helicsEndpointHasMessage(self.message_enpoint):
-                esdl_file_base64_part_bytes = h.helicsMessageGetBytes(h.helicsEndpointGetMessage(self.message_enpoint))
+            if h.helicsEndpointHasMessage(self.esdl_message_enpoint):
+                esdl_file_base64_part_bytes = h.helicsMessageGetBytes(h.helicsEndpointGetMessage(self.esdl_message_enpoint))
                 esdl_file_base64_part = esdl_file_base64_part_bytes.decode()
                 LOGGER.debug(f"Received part of esdl file with: {len(esdl_file_base64_part)} characters")
             esdl_file_base64 += esdl_file_base64_part
@@ -339,10 +349,18 @@ class HelicsSimulationExecutor:
             info.federate_time_period = 0
         self.calculations.append(HelicsValueFederateExecutor(info))
 
-    def _get_esdl_from_so(self):
-        esdl_message_federate = HelicsEsdlMessageFederateExecutor(HelicsMessageFederateInformation('esdl'))
+    def _create_initialization_federate_executor(self):
+        esdl_message_federate = HelicsInitializationMessagesFederateExecutor(HelicsInitMessagesFederateInformation('esdl', f'{self.simulator_configuration.model_id}'))
         esdl_message_federate.init_federate()
-        esdl_helper = esdl_message_federate.wait_for_esdl_file()
+        return esdl_message_federate
+    
+    def _send_amount_of_calculations(self, init_federate_executor : HelicsInitializationMessagesFederateExecutor):
+        amount_of_calculations = len(self.calculations)
+        TIME_TO_REQUEST = 1.0
+        init_federate_executor.send_amount_of_calculations(amount_of_calculations, TIME_TO_REQUEST)
+
+    def _get_esdl_from_so(self, init_federate_executor : HelicsInitializationMessagesFederateExecutor) -> EsdlHelper:
+        esdl_helper = init_federate_executor.wait_for_esdl_file()
         return esdl_helper
 
     def _init_influxdb(self, esdl_helper : EsdlHelper):
@@ -354,7 +372,9 @@ class HelicsSimulationExecutor:
         pass
 
     def init_simulation(self) -> esdl.EnergySystem:
-        esdl_helper = self._get_esdl_from_so()
+        init_federate_executor = self._create_initialization_federate_executor()
+        self._send_amount_of_calculations(init_federate_executor)
+        esdl_helper = self._get_esdl_from_so(init_federate_executor)
         self._init_influxdb(esdl_helper)
         self.init_calculation_service(esdl_helper.energy_system)
         return esdl_helper
