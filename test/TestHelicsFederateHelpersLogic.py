@@ -464,7 +464,7 @@ class TestLogicRunningSimulation(unittest.TestCase):
         simulation_executor = HelicsSimulationExecutor()
         simulation_executor.add_calculation(calculation_information_schedule)
         simulation_executor.add_calculation(calculation_information_dispatch)
-        broker_endpoint = "broker_endpoint_amount_of_calculations"
+        broker_endpoint = "broker_initialization_federate/broker_endpoint_amount_of_calculations"
 
         self.i = 0
         def helics_request_time(a, b):
