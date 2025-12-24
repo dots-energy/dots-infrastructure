@@ -50,6 +50,7 @@ class HelicsInitializationMessagesFederateExecutor(HelicsFederateExecutor):
         self.message_federate = h.helicsCreateMessageFederate(f"{self.simulator_configuration.model_id}", federate_info)
         self.esdl_message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.esdl_endpoint_name)
         self.amount_of_calculations_endpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.amount_of_calculations_endpoint_name)
+        h.helicsFederateEnterExecutingMode(self.message_federate)
 
     def send_amount_of_calculations(self, amount_of_calculations : int, time_to_request : float):
         h.helicsFederateRequestTime(self.message_federate, time_to_request)
@@ -61,7 +62,6 @@ class HelicsInitializationMessagesFederateExecutor(HelicsFederateExecutor):
         h.helicsEndpointSendMessage(self.amount_of_calculations_endpoint, amount_of_calculations_message)
 
     def wait_for_esdl_file(self) -> EsdlHelper:
-        h.helicsFederateEnterExecutingMode(self.message_federate)
         esdl_file_base64 = ""
         while h.helicsFederateRequestTime(self.message_federate, h.HELICS_TIME_MAXTIME) != h.HELICS_TIME_MAXTIME:
             LOGGER.debug("Fetching an esdl message string at time")
