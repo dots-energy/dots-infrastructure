@@ -49,7 +49,7 @@ class CodeGenerator:
         else:
             raise ValueError(f"Unsupported helics data type: {data_type} for {name}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
 
-    def render_calculation_service(self, template_path: Path, json_data : str, output_dir: Path):
+    def render_calculation_service_base(self, template_path: Path, json_data : str, output_dir: Path):
 
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
 
@@ -73,6 +73,24 @@ class CodeGenerator:
             output_file=output_file,
             calculations=dataset_meta_data.calculations,
             name=base_class_name,
+            esdl_type=dataset_meta_data.esdl_type
+        )
+
+    def render_calculation_service(self, template_path: Path, json_data : str, output_dir: Path):
+
+        dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
+
+        class_name = self.camel_case(dataset_meta_data.name)
+        base_class_name = self.get_base_class_name(class_name)
+        file_name = self.get_python_name(dataset_meta_data.name)
+        output_file = output_dir / f"{file_name}.py"
+        self.render_template(
+            template_path=template_path,
+            output_dir=output_dir,
+            output_file=output_file,
+            calculations=dataset_meta_data.calculations,
+            class_name=class_name,
+            base_class_name=base_class_name,
             esdl_type=dataset_meta_data.esdl_type
         )
 
@@ -115,6 +133,7 @@ class CodeGenerator:
 
     def code_gen(self, input : str, code_output_dir : str, documentation_ouput_dir : str):
         render_funcs = {
+            "calculation_service_base": (self.render_calculation_service_base, code_output_dir),
             "calculation_service": (self.render_calculation_service, code_output_dir),
             "cs_documentation": (self.render_documentation, documentation_ouput_dir),
             "cs_data_classes": (self.render_output_dataclasses, code_output_dir)
