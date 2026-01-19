@@ -15,6 +15,7 @@ class {{name}}(HelicsSimulationExecutor):
 
         {% for calculation in calculations %}
         # Calculation: {{calculation.calculation_function_name}}
+        self.{{calculation.calculation_function_name}}_period_seconds = {{calculation.time_period_in_seconds}}
         {{calculation.calculation_function_name}}_inputs = [
         {% for input in calculation.inputs %}
             SubscriptionDescription(esdl_type="{{input.esdl_type}}", 
