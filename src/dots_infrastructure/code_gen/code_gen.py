@@ -48,6 +48,16 @@ class CodeGenerator:
             return self.helics_data_type_to_python_data_type[data_type]
         else:
             raise ValueError(f"Unsupported helics data type: {data_type} for {name}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+        
+    def transform_names_python_friendly(self, dataset_meta_data : CalculationServiceMetaData):
+        for calculation in dataset_meta_data.calculations:
+            calculation.calculation_function_name = self.get_python_name(calculation.name)
+            for input in calculation.inputs:
+                input.python_name = self.get_python_name(input.name)
+                self._extract_valid_python_datatype(input.data_type, input.name)
+            for output in calculation.outputs:
+                output.python_name = self.get_python_name(output.name)
+                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
 
     def render_calculation_service_base(self, template_path: Path, json_data : str, output_dir: Path):
 
@@ -58,14 +68,7 @@ class CodeGenerator:
         file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_base.py"
 
-        for calculation in dataset_meta_data.calculations:
-            calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
-            for input in calculation.inputs:
-                input.python_name = self.get_python_name(input.name)
-                self._extract_valid_python_datatype(input.data_type, input.name)
-            for output in calculation.outputs:
-                output.python_name = self.get_python_name(output.name)
-                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
+        self.transform_names_python_friendly(dataset_meta_data)
 
         self.render_template(
             template_path=template_path,
@@ -84,6 +87,7 @@ class CodeGenerator:
         base_class_name = self.get_base_class_name(class_name)
         file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}.py"
+        self.transform_names_python_friendly(dataset_meta_data)
         self.render_template(
             template_path=template_path,
             output_dir=output_dir,
