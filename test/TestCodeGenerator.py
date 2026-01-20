@@ -20,6 +20,9 @@ class TestLogicAddingCalculations(unittest.TestCase):
 
         # Execute and Assert
         with self.assertRaises(ValueError):
+            self.code_generator.render_calculation_service_base(self.test_template_dir, input_json, self.test_output_dir)
+
+        with self.assertRaises(ValueError):
             self.code_generator.render_calculation_service(self.test_template_dir, input_json, self.test_output_dir)
 
         with self.assertRaises(ValueError):
@@ -31,7 +34,7 @@ class TestLogicAddingCalculations(unittest.TestCase):
             input_json = json_input.read()
 
         # Execute
-        self.code_generator.render_calculation_service(self.test_template_dir, input_json, self.test_output_dir)
+        self.code_generator.render_calculation_service_base(self.test_template_dir, input_json, self.test_output_dir)
 
         # Assert
         expected_inputs = [

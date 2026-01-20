@@ -48,8 +48,18 @@ class CodeGenerator:
             return self.helics_data_type_to_python_data_type[data_type]
         else:
             raise ValueError(f"Unsupported helics data type: {data_type} for {name}, expected one of {", ".join(self.helics_data_type_to_python_data_type.keys())}")
+        
+    def transform_names_python_friendly(self, dataset_meta_data : CalculationServiceMetaData):
+        for calculation in dataset_meta_data.calculations:
+            calculation.calculation_function_name = self.get_python_name(calculation.name)
+            for input in calculation.inputs:
+                input.python_name = self.get_python_name(input.name)
+                self._extract_valid_python_datatype(input.data_type, input.name)
+            for output in calculation.outputs:
+                output.python_name = self.get_python_name(output.name)
+                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
 
-    def render_calculation_service(self, template_path: Path, json_data : str, output_dir: Path):
+    def render_calculation_service_base(self, template_path: Path, json_data : str, output_dir: Path):
 
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
 
@@ -58,14 +68,7 @@ class CodeGenerator:
         file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}_base.py"
 
-        for calculation in dataset_meta_data.calculations:
-            calculation.calculation_function_name = calculation.name.replace(" ", "_").replace("-", "_").replace(".", "_")
-            for input in calculation.inputs:
-                input.python_name = self.get_python_name(input.name)
-                self._extract_valid_python_datatype(input.data_type, input.name)
-            for output in calculation.outputs:
-                output.python_name = self.get_python_name(output.name)
-                output.python_data_type = self._extract_valid_python_datatype(output.data_type, output.name)
+        self.transform_names_python_friendly(dataset_meta_data)
 
         self.render_template(
             template_path=template_path,
@@ -73,6 +76,25 @@ class CodeGenerator:
             output_file=output_file,
             calculations=dataset_meta_data.calculations,
             name=base_class_name,
+            esdl_type=dataset_meta_data.esdl_type
+        )
+
+    def render_calculation_service(self, template_path: Path, json_data : str, output_dir: Path):
+
+        dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)
+
+        class_name = self.camel_case(dataset_meta_data.name)
+        base_class_name = self.get_base_class_name(class_name)
+        file_name = self.get_python_name(dataset_meta_data.name)
+        output_file = output_dir / f"{file_name}.py"
+        self.transform_names_python_friendly(dataset_meta_data)
+        self.render_template(
+            template_path=template_path,
+            output_dir=output_dir,
+            output_file=output_file,
+            calculations=dataset_meta_data.calculations,
+            class_name=class_name,
+            base_class_name=base_class_name,
             esdl_type=dataset_meta_data.esdl_type
         )
 
@@ -115,6 +137,7 @@ class CodeGenerator:
 
     def code_gen(self, input : str, code_output_dir : str, documentation_ouput_dir : str):
         render_funcs = {
+            "calculation_service_base": (self.render_calculation_service_base, code_output_dir),
             "calculation_service": (self.render_calculation_service, code_output_dir),
             "cs_documentation": (self.render_documentation, documentation_ouput_dir),
             "cs_data_classes": (self.render_output_dataclasses, code_output_dir)
