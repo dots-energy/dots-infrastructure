@@ -74,5 +74,21 @@ class TestLogicAddingCalculations(unittest.TestCase):
         ]
         self.code_generator.render_template.assert_has_calls(calls)
 
+    def test_when_implementation_file_exists_render_template_cs_is_not_called(self):
+        # Arrange
+        with open("test_valid_input.json", mode="r") as json_input:
+            input_json = json_input.read()
+
+        # Pre-create the output file to simulate existing implementation
+        output_file = self.test_output_dir / "test.py"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.touch()
+
+        # Execute
+        self.code_generator.render_calculation_service(self.test_template_dir, input_json, self.test_output_dir)
+
+        # Assert
+        self.code_generator.render_template.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

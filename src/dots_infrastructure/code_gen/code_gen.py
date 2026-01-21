@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -87,16 +88,17 @@ class CodeGenerator:
         base_class_name = self.get_base_class_name(class_name)
         file_name = self.get_python_name(dataset_meta_data.name)
         output_file = output_dir / f"{file_name}.py"
-        self.transform_names_python_friendly(dataset_meta_data)
-        self.render_template(
-            template_path=template_path,
-            output_dir=output_dir,
-            output_file=output_file,
-            calculations=dataset_meta_data.calculations,
-            class_name=class_name,
-            base_class_name=base_class_name,
-            esdl_type=dataset_meta_data.esdl_type
-        )
+        if not os.path.exists(output_file):
+            self.transform_names_python_friendly(dataset_meta_data)
+            self.render_template(
+                template_path=template_path,
+                output_dir=output_dir,
+                output_file=output_file,
+                calculations=dataset_meta_data.calculations,
+                class_name=class_name,
+                base_class_name=base_class_name,
+                esdl_type=dataset_meta_data.esdl_type
+            )
 
     def render_output_dataclasses(self, template_path: Path, json_data : str, output_dir: Path):
         dataset_meta_data: CalculationServiceMetaData = CalculationServiceMetaData.schema().loads(json_data)

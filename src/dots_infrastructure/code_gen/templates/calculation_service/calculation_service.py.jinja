@@ -6,7 +6,7 @@ from esdl import EnergySystem
 
 class {{class_name}}({{base_class_name}}): 
 
-    def init_calculation_service(self, energy_system: esdl.EnergySystem):
+    def init_calculation_service(self, energy_system: EnergySystem):
         super().init_calculation_service(energy_system)
 
     {% for calculation in calculations %}
