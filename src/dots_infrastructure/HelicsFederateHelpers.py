@@ -134,7 +134,9 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
                 inputs.append(new_input)
 
     def init_federate(self, esdl_helper : EsdlHelper):
+        LOGGER.debug(f"[{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}] Initializing federate info")
         federate_info = self.init_calculation_service_federate_info(self.helics_value_federate_info)
+        LOGGER.debug(f"[{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}] Creating HELICS value federate")
         self.value_federate = h.helicsCreateValueFederate(f"{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}", federate_info)
         self.init_inputs(self.helics_value_federate_info.inputs, esdl_helper, self.value_federate)
         self.init_outputs(self.helics_value_federate_info.outputs, self.value_federate)
