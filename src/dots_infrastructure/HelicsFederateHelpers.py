@@ -93,6 +93,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         self.running_status = RunningStatus()
 
     def init_outputs(self, pubs : List[PublicationDescription], value_federate : h.HelicsValueFederate):
+        LOGGER.debug(f"[{self.value_federate.name}] Initializing {len(pubs)} outputs for calculation service {self.helics_value_federate_info.calculation_name}")
         outputs = CalculationServiceHelperFunctions.generate_publications_from_value_descriptions(pubs, self.simulator_configuration)
         for output in outputs:
             key = f'{output.esdl_asset_type}/{output.output_name}/{output.output_esdl_id}'
@@ -109,8 +110,10 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
 
     def init_inputs(self, subs : List[SubscriptionDescription], esdl_helper : EsdlHelper, value_federate : h.HelicsValueFederate):
         inputs : List[CalculationServiceInput] = []
+        LOGGER.debug(f"[{self.value_federate.name}] Initializing {len(subs)} inputs for calculation service {self.helics_value_federate_info.calculation_name}")
         for esdl_id in self.simulator_configuration.esdl_ids:
             inputs_for_esdl_object = esdl_helper.get_connected_input_esdl_objects(esdl_id, self.simulator_configuration.calculation_services, subs)
+            LOGGER.debug(f"[{self.value_federate.name}] Initializing {len(inputs_for_esdl_object)} inputs for esdl object {esdl_id}")
             self.remove_duplicate_subscriptions_and_update_inputs(inputs, inputs_for_esdl_object)
             self.input_dict[esdl_id] = inputs_for_esdl_object
 
