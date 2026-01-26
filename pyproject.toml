@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dots_infrastructure"
-version = "1.0.9rc3"
+version = "1.0.9rc4"
 authors = [
   { name="Leo van Schooten", email="l.g.t.v.schooten@tue.nl" },
 ]
