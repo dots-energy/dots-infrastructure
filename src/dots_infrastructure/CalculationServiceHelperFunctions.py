@@ -41,12 +41,20 @@ def generate_publications_from_value_descriptions(value_descriptions : List[Publ
             ret_val.append(CalculationServiceOutput(value_description.global_flag, value_description.esdl_type, value_description.output_name, esdl_id, value_description.data_type, value_description.output_unit))
     return ret_val
 
-def get_single_param_with_name(param_dict : dict, name : str):
+def get_single_param_with_name(param_dict : dict, name : str, default = None):
+    """
+    Retrieves a single parameter from the param_dict whose key contains the specified name.
+    Args:
+        param_dict (dict): Dictionary containing parameters.
+        name (str): The name to search for in the keys.
+        default: The default value to return if no matching key is found.
+    """
     for key in param_dict.keys():
         key_splitted = key.split("/")
         if any(name == key_part for key_part in key_splitted):
             return param_dict[key]
-        
+    return default
+
 def clear_dictionary_values(dictionary_to_clear : dict):
     return dictionary_to_clear.fromkeys(dictionary_to_clear, None)
 
