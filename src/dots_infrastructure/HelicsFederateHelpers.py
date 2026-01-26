@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import dataclasses
 from datetime import timedelta
 import math
+import time
 import traceback
 from typing import List
 import helics as h
@@ -398,9 +399,14 @@ class HelicsSimulationExecutor:
             self.exe.submit(calculation.initialize_and_start_federate, esdl_helper)
 
     def stop_simulation(self):
-        self.exe.shutdown()
+
+        while not all(calculation.running_status.terminated for calculation in self.calculations):
+            time.sleep(1)
+
+        self.exe.shutdown(wait=False)
+
         LOGGER.debug(f"Writing data to influx for calculation service {self.simulator_configuration.model_id}")
         self.influx_connector.write_output()
-        if any([calculation.running_status.exception for calculation in self.calculations]):
+        if any(calculation.running_status.exception for calculation in self.calculations):
             failed_calulation = next((calculation for calculation in self.calculations if calculation.running_status.exception == True), None)
             raise RuntimeError(f"Calculation service had an exception calculation: {failed_calulation.helics_value_federate_info.calculation_name} failed")
