@@ -26,7 +26,7 @@ class HelicsFederateExecutor:
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
         h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
         h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
-        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HelicsLogLevel.DEBUG)
+        h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HelicsLogLevel.NO_PRINT)
         return federate_info
 
     def init_calculation_service_federate_info(self, info : HelicsCalculationInformation):

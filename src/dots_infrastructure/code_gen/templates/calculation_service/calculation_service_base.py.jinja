@@ -31,7 +31,7 @@ class {{name}}(HelicsSimulationExecutor):
                                     esdl_type="{{esdl_type}}",
                                     output_name="{{output.python_name}}",
                                     output_unit="{{output.unit}}", 
-                                    data_type="{{output.data_type}}"),
+                                    data_type=h.HelicsDataType.{{output.data_type}}),
 
         {%- endfor %}
         ]
