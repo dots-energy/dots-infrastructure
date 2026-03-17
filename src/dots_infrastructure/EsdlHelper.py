@@ -69,11 +69,12 @@ class EsdlHelper:
             for port in model_esdl_asset.port:
                 for connected_port in port.connectedTo:
                     connected_asset = connected_port.eContainer()
-                    self.add_connected_esdl_object(
-                        connected_input_esdl_objects, calculation_services, input_descriptions, connected_asset, start_asset
-                    )
-                    if connected_asset.port != None and connected_asset.port != []:
-                        self.add_calc_services_from_ports_recursive(calculation_services, connected_input_esdl_objects, input_descriptions, connected_asset, start_asset, visited_assets)
+                    if not isinstance(connected_asset, esdl.EConnection):
+                        self.add_connected_esdl_object(
+                            connected_input_esdl_objects, calculation_services, input_descriptions, connected_asset, start_asset
+                        )
+                        if connected_asset.port != None and connected_asset.port != []:
+                            self.add_calc_services_from_ports_recursive(calculation_services, connected_input_esdl_objects, input_descriptions, connected_asset, start_asset, visited_assets)
 
     def add_calc_services_from_building(self, calculation_services: List[str], connected_input_esdl_objects: List[CalculationServiceInput], input_descriptions : List[SubscriptionDescription], model_esdl_asset: esdl.EnergyAsset, building : esdl.Building):
         for esdl_entity in building.eAllContents():
