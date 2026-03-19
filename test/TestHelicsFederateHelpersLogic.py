@@ -19,7 +19,7 @@ from dots_infrastructure.test_infra.HelicsMocks import HelicsEndpointMock, Helic
 LOGGER.disabled = True
 
 def simulator_environment_e_logic_test():
-    return SimulatorConfiguration("LogicTest", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection"])
+    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection", "EnergyMarket"])
 
 @dataclass
 class TestDataClass:
@@ -158,6 +158,8 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsCreateValueFederate = self.helics_create_value_federate
         h.helicsFederateRegisterSubscription = self.helics_federate_register_subscription
         Common.destroy_federate = self.common_destroy_federate
+
+class TestLogicRunningSimulationLoop(TestLogicRunningSimulation):
 
     def test_helics_simulation_loop_started_correctly(self):
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
@@ -489,6 +491,12 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsMessageSetDestination.assert_called_once_with(ANY, broker_endpoint)
         h.helicsEndpointSendMessage.assert_called_once()
 
+class TestLogicInitializingInputs(TestLogicRunningSimulation):
+
+    def setUp(self):
+        super().setUp()
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = MagicMock(return_value=SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da", "fd7fc047-30b1-48e3-99d9-1bc882772170"], "Mock-LogicTest", "127.0.0.1", 2000, "test-id", 5, datetime(2024,1,1), "test-host", "test-port", "test-username", "test-password", "test-database-name", h.HelicsLogLevel.DEBUG, ["PVInstallation", "EConnection", "EnergyMarket"]))
+
     def test_initializing_inputs_does_not_result_in_duplicate_subscriptions(self):
         calculation_function = MagicMock()
         calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
@@ -496,8 +504,8 @@ class TestLogicRunningSimulation(unittest.TestCase):
                                                                         wait_for_current_time_update=False, 
                                                                         uninterruptible=False, 
                                                                         terminate_on_error=True, 
-                                                                        calculation_name="PVInstallation", 
-                                                                        inputs=[SubscriptionDescription("EnvironmentalProfiles", "test-input", "W", h.HelicsDataType.DOUBLE)], 
+                                                                        calculation_name="optimize", 
+                                                                        inputs=[SubscriptionDescription("EnergyMarket", "test-input", "W", h.HelicsDataType.DOUBLE)], 
                                                                         outputs=[], 
                                                                         calculation_function=calculation_function)
 
