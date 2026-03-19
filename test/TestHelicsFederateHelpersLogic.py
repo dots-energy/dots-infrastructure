@@ -11,6 +11,7 @@ import helics as h
 from dots_infrastructure import CalculationServiceHelperFunctions, Common
 from dots_infrastructure.Constants import TimeRequestType
 from dots_infrastructure.DataClasses import CalculationServiceInput, CalculationServiceOutput, EsdlId, HelicsCalculationInformation, HelicsInitMessagesFederateInformation, PublicationDescription, SimulatorConfiguration, SubscriptionDescription, TimeStepInformation
+from dots_infrastructure.EsdlHelper import EsdlHelper
 from dots_infrastructure.HelicsFederateHelpers import HelicsInitializationMessagesFederateExecutor, HelicsValueFederateExecutor, HelicsSimulationExecutor
 from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.HelicsMocks import HelicsEndpointMock, HelicsFederateMock
@@ -80,7 +81,7 @@ class TestLogicAddingCalculations(unittest.TestCase):
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
 
     def tearDown(self):
-        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
+        CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = self.get_sim_config_from_env
         
     def test_simulation_none_input_output_sets_empty_inputs_and_outputs(self):
 
@@ -114,6 +115,8 @@ class TestLogicRunningSimulation(unittest.TestCase):
         self.helics_message_set_destination = h.helicsMessageSetDestination
         self.helics_endpoint_send_message = h.helicsEndpointSendMessage
         self.helics_endpoint_create_message = h.helicsEndpointCreateMessage
+        self.helics_create_value_federate = h.helicsCreateValueFederate
+        self.helics_federate_register_subscription = h.helicsFederateRegisterSubscription
         self.common_destroy_federate = Common.destroy_federate
         h.helicsFederateGetName = MagicMock(return_value = "LogicTest")
         CalculationServiceHelperFunctions.get_simulator_configuration_from_environment = simulator_environment_e_logic_test
@@ -128,6 +131,8 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsEndpointGetMessage = MagicMock(return_value = None)
         h.helicsCreateMessageFederate = MagicMock(return_value = HelicsFederateMock())
         h.helicsFederateRegisterEndpoint = MagicMock(return_value = HelicsEndpointMock())
+        h.helicsCreateValueFederate = MagicMock()
+        h.helicsFederateRegisterSubscription = MagicMock()
         
         h.helicsMessageSetString = MagicMock()
         h.helicsMessageSetDestination = MagicMock()
@@ -150,6 +155,8 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsMessageSetDestination = self.helics_message_set_destination
         h.helicsEndpointSendMessage = self.helics_endpoint_send_message
         h.helicsEndpointCreateMessage = self.helics_endpoint_create_message
+        h.helicsCreateValueFederate = self.helics_create_value_federate
+        h.helicsFederateRegisterSubscription = self.helics_federate_register_subscription
         Common.destroy_federate = self.common_destroy_federate
 
     def test_helics_simulation_loop_started_correctly(self):
@@ -481,6 +488,25 @@ class TestLogicRunningSimulation(unittest.TestCase):
         h.helicsMessageSetString.assert_called_once_with(ANY, "2")
         h.helicsMessageSetDestination.assert_called_once_with(ANY, broker_endpoint)
         h.helicsEndpointSendMessage.assert_called_once()
+
+    def test_initializing_inputs_does_not_result_in_duplicate_subscriptions(self):
+        calculation_function = MagicMock()
+        calculation_information_schedule = HelicsCalculationInformation(time_period_in_seconds=5,
+                                                                        offset=0,
+                                                                        wait_for_current_time_update=False, 
+                                                                        uninterruptible=False, 
+                                                                        terminate_on_error=True, 
+                                                                        calculation_name="PVInstallation", 
+                                                                        inputs=[SubscriptionDescription("EnvironmentalProfiles", "test-input", "W", h.HelicsDataType.DOUBLE)], 
+                                                                        outputs=[], 
+                                                                        calculation_function=calculation_function)
+
+        simulation_executor = HelicsSimulationExecutor()
+        simulation_executor.add_calculation(calculation_information_schedule)
+        esdl_helper = EsdlHelper(self.encoded_base64_esdl)
+        simulation_executor.calculations[0].initialize_and_start_federate(esdl_helper)
+
+        self.assertEqual(len(simulation_executor.calculations[0].all_inputs), 1)
 
 if __name__ == '__main__':
     unittest.main()

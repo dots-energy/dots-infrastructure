@@ -379,7 +379,7 @@ class HelicsSimulationExecutor:
     def init_calculation_service(self, energy_system : esdl.EnergySystem):
         pass
 
-    def init_simulation(self) -> esdl.EnergySystem:
+    def init_simulation(self) -> EsdlHelper:
         init_federate_executor = self._create_initialization_federate_executor()
         self._send_amount_of_calculations(init_federate_executor)
         esdl_helper = self._get_esdl_from_so(init_federate_executor)
