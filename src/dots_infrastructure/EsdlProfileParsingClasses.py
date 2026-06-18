@@ -62,16 +62,16 @@ class ParsedDateTimeProfile(ParsedStaticProfile):
         from_profile = []
         to_profile = []
         value_profile = []
-        prev_time_delta = -1
+        prev_time_delta : timedelta | None = None
         time_delta_consistent = True
         for el in profile.element:
             value_profile.append(el.value)
             from_profile.append(el.from_)
             to_profile.append(el.to)
-            time_delta = el.to - el.from_
-            if prev_time_delta == -1:
+            time_delta : timedelta = el.to - el.from_
+            if prev_time_delta is None:
                 prev_time_delta = time_delta
-            if prev_time_delta != time_delta:
+            if prev_time_delta.seconds != time_delta.seconds:
                 time_delta_consistent = False
 
         self.is_time_series = time_delta_consistent
