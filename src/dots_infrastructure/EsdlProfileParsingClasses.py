@@ -50,11 +50,12 @@ class ParsedStaticProfile:
 class ParsedDateTimeProfile(ParsedStaticProfile):
 
     def __init__(self, data):
+        self.is_time_series = False
+        self.time_delta: timedelta | None = None
         super().__init__(data)
         parsed_profile : pd.DataFrame = self._parsed_profile
         self.min_date = parsed_profile["from"].min()
         self.max_date = parsed_profile["to"].max()
-        self._is_time_series = False
 
     def _parse_profile(self, profile : DateTimeProfile) -> pd.DataFrame:
         # Parse the profile and return the values
@@ -73,14 +74,15 @@ class ParsedDateTimeProfile(ParsedStaticProfile):
             if prev_time_delta != time_delta:
                 time_delta_consistent = False
 
-        self._is_time_series = time_delta_consistent
+        self.is_time_series = time_delta_consistent
+        self.time_delta = prev_time_delta
 
         ret_val = pd.DataFrame({
             "from": from_profile,
             "to": to_profile,
             "value": value_profile
         })
-        ret_val.sort_values("from")
+        ret_val = ret_val.sort_values("from", ascending=True)
         return ret_val
 
 
@@ -90,7 +92,7 @@ class ParsedDateTimeProfile(ParsedStaticProfile):
         data_filtered = data[(data["from"] >= from_data_altered_year ) & (data["to"] <= to_data_altered_year )]
         values = data_filtered["value"].tolist()
         return values
-    
+
 
 
 class ParsedTimeSeriesProfile(ParsedStaticProfile):
@@ -142,3 +144,12 @@ class ParsedTimeSeriesProfile(ParsedStaticProfile):
         to_index = math.ceil(delta_t_to.seconds / data.timestep)
         values = data.values[from_index:to_index]
         return values
+    
+
+def convert_parsed_datetime_profile_to_time_series_profile(parsed_datetime_profile : ParsedDateTimeProfile) -> ParsedTimeSeriesProfile:
+    if not parsed_datetime_profile.is_time_series:
+        raise ValueError("Profile is not a timeseries")
+
+    time_series_profile = TimeSeriesProfile(startDateTime=parsed_datetime_profile.min_date, timestep=parsed_datetime_profile.time_delta.seconds, values=parsed_datetime_profile.get_data(parsed_datetime_profile.min_date, parsed_datetime_profile.max_date))
+
+    return ParsedTimeSeriesProfile(time_series_profile)

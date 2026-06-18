@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from esdl import DateTimeProfile, ProfileElement, StaticProfile, TimeSeriesProfile
 import unittest
 
-from dots_infrastructure.EsdlProfileParsingClasses import ParsedDateTimeProfile, ParsedTimeSeriesProfile
+from dots_infrastructure.EsdlProfileParsingClasses import ParsedDateTimeProfile, ParsedTimeSeriesProfile, convert_parsed_datetime_profile_to_time_series_profile
 
 @dataclass
 class TestParamProfileClasses:
@@ -59,6 +59,19 @@ class TestProfileClasses(unittest.TestCase):
                 to_date = datetime(2020,1,1,4,0)
                 data = parsed_profile.get_data_in_timeseries_format(from_date, to_date, example.timestep)
                 self.assertListEqual(data, example.expected_outcome)
+
+    def test_converting_datetime_profile_to_timeseries(self):
+        test_cases = [
+            self.date_time_profile,
+        ]
+        for i, profile in enumerate(test_cases):
+            with self.subTest(i=i, params = profile):
+                parsed_profile = self.parse_profile(profile)
+                time_series_profile = convert_parsed_datetime_profile_to_time_series_profile(parsed_profile)
+
+                new_all_data = time_series_profile.get_data(time_series_profile.min_date, time_series_profile.max_date)
+                self.assertEqual(new_all_data, [1.0,2.0,3.0,4.0,5.0])
+
 
     
 
