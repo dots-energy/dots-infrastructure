@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dots_infrastructure"
-version = "1.0.10rc20"
+version = "1.0.10rc21"
 authors = [
   { name="Leo van Schooten", email="l.g.t.v.schooten@tue.nl" },
 ]
@@ -14,7 +14,8 @@ dependencies = [
     'influxdb~=5.3.1',
     'Jinja2==3.1.6',
     'dataclasses-json==0.6.7',
-    'pandas==3.0.3'
+    'pandas==3.0.3',
+    'numpy==2.4.6'
 ]
 description = "A python package containing infrastructure to develop a dots calculation service"
 readme = "README.md"

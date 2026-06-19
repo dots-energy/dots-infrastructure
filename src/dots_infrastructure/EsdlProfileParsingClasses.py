@@ -3,6 +3,7 @@ import math
 
 from dots_infrastructure.DataClasses import EsdlId
 from esdl import DateTimeProfile, StaticProfile, TimeSeriesProfile
+import numpy as np
 import pandas as pd
 
 class ParsedStaticProfile:
@@ -109,6 +110,63 @@ class ParsedTimeSeriesProfile(ParsedStaticProfile):
 
     def _parse_profile(self, profile : TimeSeriesProfile):
         return profile
+    
+    def _get_data_at_time(self, time : datetime):
+        data : TimeSeriesProfile = self._parsed_profile
+        delta_t_from_in_seconds : int = self.date_diff_in_seconds(time, data.startDateTime)
+
+        data_at_index = math.floor(delta_t_from_in_seconds / data.timestep)
+        return data.values[data_at_index]
+
+    def get_data_in_timeseries_format_interpolated(self, from_data : datetime, to_data : datetime, time_step_seconds : float):
+        """
+        Get the data as consistent timeseries coherent to a specific timestep size. If multiple values fall within one time step a weighed avereage is calulated and taken as value.
+
+        Args:
+            from_data: The timestamp where the timeseries should start.
+            to_data: The timestamp where the timeseries should stop.
+            time_step_seconds: The timestep of the outputted timeseries.
+
+        Returns:
+            A time series with a time delta of 'time_step_seconds'.
+        """
+        data : TimeSeriesProfile = self._parsed_profile
+        ret_val = []
+        from_data_altered_year, to_data_altered_year = self._alter_year_to_match_data(from_data, to_data)
+        time_step_horizion_date = from_data_altered_year
+        while time_step_horizion_date < to_data_altered_year:
+
+            value = self._get_weighted_average_in_time_step(time_step_seconds, data, time_step_horizion_date)
+            ret_val.append(float(value))
+            time_step_horizion_date = time_step_horizion_date + timedelta(seconds=time_step_seconds)
+
+        return ret_val
+
+    def _get_weighted_average_in_time_step(self, time_step_seconds : int, data : TimeSeriesProfile, time_step_horizion_date : datetime):
+        values = []
+        weights = []
+        within_time_step_horizon_date = time_step_horizion_date
+        within_time_step = True
+        horizon_within_time_step = time_step_horizion_date + timedelta(seconds=time_step_seconds)
+        while within_time_step:
+            if within_time_step_horizon_date + timedelta(seconds=data.timestep) >= horizon_within_time_step:
+                within_time_step = False
+
+            value = self._get_data_at_time(within_time_step_horizon_date)
+                
+            weight = 1.0
+            if not within_time_step:
+                amount_of_seconds_within = self.date_diff_in_seconds(horizon_within_time_step, within_time_step_horizon_date)
+                weight = amount_of_seconds_within / data.timestep
+
+            values.append(value)
+            weights.append(weight)
+            within_time_step_horizon_date = within_time_step_horizon_date + timedelta(seconds=data.timestep)
+
+
+        value = np.average(values, weights=weights)
+        return value
+
     
     def get_data_in_timeseries_format(self, from_data : datetime, to_data : datetime, time_step_seconds : float):
         """

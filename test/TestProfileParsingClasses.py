@@ -60,6 +60,20 @@ class TestProfileClasses(unittest.TestCase):
                 data = parsed_profile.get_data_in_timeseries_format(from_date, to_date, example.timestep)
                 self.assertListEqual(data, example.expected_outcome)
 
+    def test_getting_time_series_interpolated_value_is_implemented_correctly(self):
+        test_cases = [
+            TestParamProfileClasses(self.time_series_profile, 7200, [2.5, 4.5]),
+            TestParamProfileClasses(self.time_series_profile, 5400, [2.0 + (1/3), 3.0 + (1/3)]),
+        ]
+        for i, example in enumerate(test_cases):
+            with self.subTest(i=i, params = example):
+                parsed_profile = self.parse_profile(example.profile)
+
+                from_date = datetime(2020,1,1,23,0)
+                to_date = datetime(2020,1,2,2,0)
+                data = parsed_profile.get_data_in_timeseries_format_interpolated(from_date, to_date, example.timestep)
+                self.assertListEqual(data, example.expected_outcome)
+
     def test_converting_datetime_profile_to_timeseries(self):
         test_cases = [
             self.date_time_profile,
