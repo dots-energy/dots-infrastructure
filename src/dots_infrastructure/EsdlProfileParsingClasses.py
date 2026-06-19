@@ -11,6 +11,10 @@ class ParsedStaticProfile:
         self._parsed_profile = self._parse_profile(data)
         self.min_date : datetime = datetime.min
         self.max_date : datetime = datetime.max
+
+    def date_diff_in_seconds(self, dt2 : datetime, dt1 : datetime) -> int:
+        timedelta = dt2 - dt1
+        return timedelta.days * 24 * 3600 + timedelta.seconds
     
     def _parse_profile(self, profile):
         # Needs to be implemented by child classes
@@ -137,11 +141,12 @@ class ParsedTimeSeriesProfile(ParsedStaticProfile):
 
         from_data_in_data, to_data_in_data = self._alter_year_to_match_data(from_data, to_data)
 
-        delta_t_from : timedelta = from_data_in_data - data.startDateTime
-        delta_t_to : timedelta = to_data_in_data - data.startDateTime
+        delta_t_from_in_seconds : int = self.date_diff_in_seconds(from_data_in_data, data.startDateTime)
+        delta_t_to_in_seconds : int = self.date_diff_in_seconds(to_data_in_data, data.startDateTime)
 
-        from_index = math.floor(delta_t_from.seconds / data.timestep)
-        to_index = math.ceil(delta_t_to.seconds / data.timestep)
+
+        from_index = math.floor(delta_t_from_in_seconds / data.timestep)
+        to_index = math.ceil(delta_t_to_in_seconds / data.timestep)
         values = data.values[from_index:to_index]
         return values
     

@@ -17,13 +17,13 @@ class TestProfileClasses(unittest.TestCase):
     def setUp(self):
         super().setUp()
         date_time_profile = DateTimeProfile()
-        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,0,0), to=datetime(2020,1,1,1,0), value=1.0))
-        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,1,0), to=datetime(2020,1,1,2,0), value=2.0))
-        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,2,0), to=datetime(2020,1,1,3,0), value=3.0))
-        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,3,0), to=datetime(2020,1,1,4,0), value=4.0))
-        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,4,0), to=datetime(2020,1,1,5,0), value=5.0))
+        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,22,0), to=datetime(2020,1,1,23,0), value=1.0))
+        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,1,23,0), to=datetime(2020,1,2,0,0), value=2.0))
+        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,2,0,0), to=datetime(2020,1,2,1,0), value=3.0))
+        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,2,1,0), to=datetime(2020,1,2,2,0), value=4.0))
+        date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,2,2,0), to=datetime(2020,1,2,3,0), value=5.0))
         self.date_time_profile = date_time_profile
-        self.time_series_profile = TimeSeriesProfile(startDateTime=datetime(2020,1,1,0,0), timestep=3600, values=[1.0,2.0,3.0,4.0,5.0])
+        self.time_series_profile = TimeSeriesProfile(startDateTime=datetime(2020,1,1,22,00), timestep=3600, values=[1.0,2.0,3.0,4.0,5.0])
 
     def parse_profile(self, example : StaticProfile):
         if isinstance(example, TimeSeriesProfile):
@@ -41,8 +41,8 @@ class TestProfileClasses(unittest.TestCase):
             with self.subTest(i=i, params = example):
                 parsed_profile = self.parse_profile(example)
 
-                from_date = datetime(2020,1,1,1,0)
-                to_date = datetime(2020,1,1,4,0)
+                from_date = datetime(2020,1,1,23,0)
+                to_date = datetime(2020,1,2,2,0)
                 data = parsed_profile.get_data(from_date, to_date)
                 self.assertListEqual(data, [2,3,4])
 
@@ -55,8 +55,8 @@ class TestProfileClasses(unittest.TestCase):
             with self.subTest(i=i, params = example):
                 parsed_profile = self.parse_profile(example.profile)
 
-                from_date = datetime(2020,1,1,1,0)
-                to_date = datetime(2020,1,1,4,0)
+                from_date = datetime(2020,1,1,23,0)
+                to_date = datetime(2020,1,2,2,0)
                 data = parsed_profile.get_data_in_timeseries_format(from_date, to_date, example.timestep)
                 self.assertListEqual(data, example.expected_outcome)
 
