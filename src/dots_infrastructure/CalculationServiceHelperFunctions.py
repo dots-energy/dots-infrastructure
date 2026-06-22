@@ -59,7 +59,7 @@ def clear_dictionary_values(dictionary_to_clear : dict):
     return dictionary_to_clear.fromkeys(dictionary_to_clear, None)
 
 def dictionary_has_values_for_all_keys(dictionary : dict):
-    return all([False if v == None else True for v in dictionary.values()])
+    return all(False if v == None else True for v in dictionary.values())
 
 def get_vector_param_with_name(param_dict : dict, name : str):
     return [value for key, value in param_dict.items() if any(name == key_part for key_part in key.split("/"))]
