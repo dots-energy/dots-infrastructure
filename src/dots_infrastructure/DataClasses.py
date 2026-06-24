@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import List
 import helics as h
 
 from dots_infrastructure.Constants import TimeRequestType
+from fmpy.model_description import ModelVariable, ModelDescription
 
 EsdlId = str
 
@@ -60,7 +62,7 @@ class HelicsCalculationInformation:
     outputs : List[PublicationDescription]
     calculation_function : any
     time_delta : float = 0
-    federate_time_period = 0
+    federate_time_period : int = 0
     time_request_type : TimeRequestType = TimeRequestType.PERIOD
 
 @dataclass
@@ -97,3 +99,23 @@ class TimeStepInformation:
 class RunningStatus:
     terminated : bool = False
     exception : bool = False
+
+@dataclass # Move to dots infrastructure
+class FMUVariableCollections:
+    parameter_variables : List[ModelVariable]
+    input_variables : List[ModelVariable]
+    output_variables : List[ModelVariable]
+    step_size : float
+
+@dataclass # Move to dots infrastructure
+class FmuMetaData:
+    path : Path
+    model_description : ModelDescription
+    variable_collections : FMUVariableCollections
+
+@dataclass
+class FmuInputVariable:
+    fmu_input_name: str
+    esdl_type_input: str
+    calculation_service_input_name: str
+    calculation_service_input_unit: str
