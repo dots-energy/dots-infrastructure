@@ -44,7 +44,7 @@ class FmuCalculationService(HelicsSimulationExecutor):
 
     def init_fmu_metadata(self) -> dict[str, FmuMetaData]:
         fmu_metadata_list : dict[str, FmuMetaData] = {}
-        for path in enumerate(self.fmu_paths):
+        for path in self.fmu_paths:
             model_description = read_model_description(str(path))
             parameter_variables = [var for var in model_description.modelVariables if var.causality == "parameter"]
             input_variables = [var for var in model_description.modelVariables if var.causality == "input"]
