@@ -50,7 +50,6 @@ class FmuCalculationService(HelicsSimulationExecutor):
             input_variables = [var for var in model_description.modelVariables if var.causality == "input"]
             output_variables = [var for var in model_description.modelVariables if var.causality == "output"]
             fmu_variable_collections = FMUVariableCollections(parameter_variables, input_variables, output_variables, float(model_description.defaultExperiment.stepSize))
-
             fmu_metadata_list[path.name] = FmuMetaData(path, model_description, fmu_variable_collections)
 
         return fmu_metadata_list
@@ -152,13 +151,28 @@ class FmuCalculationService(HelicsSimulationExecutor):
         return ret_val
 
 
+    def _assert_inputs_and_outputs_are_equal_accross_fmus(self):
+        meta_datas = list(self.fmu_meta_data_mapping.values())
+
+        for i in range(len(meta_datas)):
+            for j in range(i, len(meta_datas)):
+                meta_data_i = meta_datas[i]
+                meta_data_j = meta_datas[j]
+                meta_data_j_input_names = [input_var.name for input_var in meta_data_j.variable_collections.input_variables]
+                meta_data_j_output_names = [output_var.name for output_var in meta_data_j.variable_collections.output_variables]
+                all_ins = all(input_var.name in meta_data_j_input_names for input_var in meta_data_i.variable_collections.input_variables)
+                all_outs = all(input_var.name in meta_data_j_output_names for input_var in meta_data_i.variable_collections.output_variables)
+                if not all_ins and all_outs:
+                    raise ValueError("Not all fmus share the same input and output variables")
+
+
     def init_calculation_service(self, energy_system: EnergySystem):
         self.get_all_esdl_objects(energy_system)
 
         self.fmu_meta_data_mapping = self.init_fmu_metadata()
 
         self.init_esdl_id_fmu_mapping(self.fmu_meta_data_mapping)
-
+        self._assert_inputs_and_outputs_are_equal_accross_fmus()
         self.init_calculation(self.fmu_meta_data_mapping[self.fmu_paths[0].name].variable_collections)
 
 
