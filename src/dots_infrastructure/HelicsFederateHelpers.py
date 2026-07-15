@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import dataclasses
 from datetime import timedelta
+import logging
 import math
 import time
 import traceback
@@ -150,7 +151,6 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         input_type = helics_sub.input_type
         sub = helics_sub.helics_input
         if h.helicsInputIsUpdated(sub):
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Getting value for subscription: {helics_sub.helics_sub_key} with type: {helics_sub.input_type} updated time: {h.helicsInputLastUpdateTime(sub)}")
             if input_type == h.HelicsDataType.BOOLEAN:
                 ret_val = h.helicsInputGetBoolean(sub)
             elif input_type == h.HelicsDataType.COMPLEX_VECTOR:
@@ -179,8 +179,6 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
                 raise ValueError("Unsupported Helics Data Type")
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] Got value: {ret_val} from {helics_sub.helics_sub_key}")
 
-        if ret_val == None:
-            LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] No new value for input: {helics_sub.helics_sub_key}")
         return ret_val
 
     def publish_helics_value(self, helics_output : CalculationServiceOutput, value):
@@ -285,6 +283,8 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
         new_granted_time = granted_time
         
         while not CalculationServiceHelperFunctions.dictionary_has_values_for_all_keys(input_dict):
+            if LOGGER.level == logging.DEBUG:
+                LOGGER.debug(f'Missing values for {",".join([key for key, value in input_dict.items() if value is None])}')
             LOGGER.debug(f"[{h.helicsFederateGetName(self.value_federate)}] requesting max time again to wait for new inputs")
             new_granted_time = h.helicsFederateRequestTime(self.value_federate, h.HELICS_TIME_MAXTIME)
             self._gather_new_inputs(calculation_params, input_dict)
