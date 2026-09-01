@@ -344,6 +344,7 @@ class HelicsSimulationExecutor:
         self.simulator_configuration = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment()
         self.calculations: List[HelicsValueFederateExecutor] = []
         self.energy_system = None
+        self.amount_of_calculations = -1
         self.influx_connector = InfluxDBConnector(self.simulator_configuration.influx_host, self.simulator_configuration.influx_port, self.simulator_configuration.influx_username, self.simulator_configuration.influx_password, self.simulator_configuration.influx_database_name)
 
     def add_calculation(self, info : HelicsCalculationInformation):
@@ -363,9 +364,9 @@ class HelicsSimulationExecutor:
         return esdl_message_federate
     
     def _send_amount_of_calculations(self, init_federate_executor : HelicsInitializationMessagesFederateExecutor):
-        amount_of_calculations = len(self.calculations)
+        amount_of_calculations_to_send = len(self.calculations) if self.amount_of_calculations == -1 else self.amount_of_calculations
         TIME_TO_REQUEST = 1.0
-        init_federate_executor.send_amount_of_calculations(amount_of_calculations, TIME_TO_REQUEST)
+        init_federate_executor.send_amount_of_calculations(amount_of_calculations_to_send, TIME_TO_REQUEST)
 
     def _get_esdl_from_so(self, init_federate_executor : HelicsInitializationMessagesFederateExecutor) -> EsdlHelper:
         esdl_helper = init_federate_executor.wait_for_esdl_file()

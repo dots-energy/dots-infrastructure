@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dots_infrastructure"
-version = "1.0.10"
+version = "1.0.11rc4"
 authors = [
   { name="Leo van Schooten", email="l.g.t.v.schooten@tue.nl" },
 ]
@@ -14,6 +14,7 @@ dependencies = [
     'influxdb~=5.3.1',
     'Jinja2==3.1.6',
     'dataclasses-json==0.6.7',
+    'FMPy==0.3.31',
     'pandas==3.0.3',
     'numpy==2.4.6'
 ]

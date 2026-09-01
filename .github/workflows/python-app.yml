@@ -46,3 +46,4 @@ jobs:
         python TestCalculationServiceHelperFunctions.py
         python TestCodeGenerator.py
         python TestProfileParsingClasses.py
+        python TestFmuCalculationService.py
