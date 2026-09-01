@@ -115,31 +115,32 @@ class FmuCalculationService(HelicsSimulationExecutor):
                                         input_type=FMU_TO_HELICS_TYPE_MAPPING[input_variable.type])
             )
 
-        publication_mapping : dict[str, List[FmuOutputVariable]] = {}
-        for output_variable in fmu_variable_collections.output_variables:
-            fmu_output_variable = next(fmu_output_variable for fmu_output_variable in self.output_variables if fmu_output_variable.fmu_output_name == output_variable.name)
+        publication_mapping : dict[str, List[ModelVariable]] = {}
+        for output_variable in self.output_variables:
+            fmu_output_variable = next(fmu_output_variable for fmu_output_variable in fmu_variable_collections.output_variables if fmu_output_variable.name == output_variable.fmu_output_name)
 
-            if fmu_output_variable.calculation_service_output_name not in publication_mapping:
-                publication_mapping[fmu_output_variable.calculation_service_output_name] = []
+            if output_variable.calculation_service_output_name not in publication_mapping:
+                publication_mapping[output_variable.calculation_service_output_name] = []
 
-            publication_mapping[fmu_output_variable.calculation_service_output_name].append(fmu_output_variable)
+            publication_mapping[output_variable.calculation_service_output_name].append(fmu_output_variable)
 
-        for publication_name, output_variables in publication_mapping.items():
-            if len(output_variables) > 1:
+        for calculation_service_output_name in publication_mapping.keys():
+            if len(publication_mapping[calculation_service_output_name]) > 1:
+                output_variable = next(output_variable for output_variable in self.output_variables if output_variable.calculation_service_output_name == calculation_service_output_name)
                 fmu_calculation_outputs.append(
                     PublicationDescription(global_flag=True,
                                             esdl_type=f"{self.simulator_configuration.esdl_type}", 
-                                            output_name=publication_name, 
-                                            output_unit=f"{output_variables[0].calculation_service_output_unit}", 
+                                            output_name=calculation_service_output_name, 
+                                            output_unit=f"{output_variable.calculation_service_output_unit}", 
                                             data_type=h.HelicsDataType.VECTOR),
                 )
             else:
                 fmu_calculation_outputs.append(
                     PublicationDescription(global_flag=True,
                                             esdl_type=f"{self.simulator_configuration.esdl_type}", 
-                                            output_name=publication_name, 
-                                            output_unit=f"{output_variables[0].calculation_service_output_unit}", 
-                                            data_type=FMU_TO_HELICS_TYPE_MAPPING[output_variable.type]),
+                                            output_name=calculation_service_output_name, 
+                                            output_unit=f"{output_variable.calculation_service_output_unit}", 
+                                            data_type=FMU_TO_HELICS_TYPE_MAPPING[publication_mapping[calculation_service_output_name][0].type]),
                 )
 
         fmu_calculation_information = HelicsCalculationInformation(
