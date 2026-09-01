@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import helics as h
-from dots_infrastructure.DataClasses import FMUVariableCollections, FmuInputVariable, FmuMetaData, TimeStepInformation, EsdlId, HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
+from dots_infrastructure.DataClasses import FMUVariableCollections, FmuInputVariable, FmuMetaData, FmuOutputVariable, TimeStepInformation, EsdlId, HelicsCalculationInformation, PublicationDescription, SubscriptionDescription
 from dots_infrastructure.HelicsFederateHelpers import HelicsSimulationExecutor
 from dots_infrastructure import CalculationServiceHelperFunctions
 from esdl import EnergySystem, Item
@@ -33,13 +33,14 @@ FMU_TO_HELICS_TYPE_MAPPING = {
 
 class FmuCalculationService(HelicsSimulationExecutor):
 
-    def __init__(self, fmu_file_names : list[Path], input_mapping : list[FmuInputVariable]):
+    def __init__(self, fmu_file_names : list[Path], input_mapping : list[FmuInputVariable], output_mapping : list[FmuOutputVariable]):
         super().__init__()
         self.amount_of_calculations = 1
         self.fmu_paths : List[Path] = fmu_file_names
         self.esdl_obj_mapping : dict[EsdlId, Item] = {}
         self.fmu_meta_data_mapping : dict[str, FmuMetaData] = {}
         self.input_variables : List[FmuInputVariable] = input_mapping
+        self.output_variables : List[FmuOutputVariable] = output_mapping
 
 
     def init_fmu_metadata(self) -> dict[str, FmuMetaData]:
@@ -114,14 +115,32 @@ class FmuCalculationService(HelicsSimulationExecutor):
                                         input_type=FMU_TO_HELICS_TYPE_MAPPING[input_variable.type])
             )
 
+        publication_mapping : dict[str, List[FmuOutputVariable]] = {}
         for output_variable in fmu_variable_collections.output_variables:
-            fmu_calculation_outputs.append(
-                PublicationDescription(global_flag=True,
-                                        esdl_type=f"{self.simulator_configuration.esdl_type}", 
-                                        output_name=f"{output_variable.name}", 
-                                        output_unit=f"{output_variable.unit}", 
-                                        data_type=FMU_TO_HELICS_TYPE_MAPPING[output_variable.type]),
-            )
+            fmu_output_variable = next(fmu_output_variable for fmu_output_variable in self.output_variables if fmu_output_variable.fmu_output_name == output_variable.name)
+
+            if fmu_output_variable.calculation_service_output_name not in publication_mapping:
+                publication_mapping[fmu_output_variable.calculation_service_output_name] = []
+
+            publication_mapping[fmu_output_variable.calculation_service_output_name].append(fmu_output_variable)
+
+        for publication_name, output_variables in publication_mapping.items():
+            if len(output_variables) > 1:
+                fmu_calculation_outputs.append(
+                    PublicationDescription(global_flag=True,
+                                            esdl_type=f"{self.simulator_configuration.esdl_type}", 
+                                            output_name=publication_name, 
+                                            output_unit=f"{output_variables[0].calculation_service_output_unit}", 
+                                            data_type=h.HelicsDataType.VECTOR),
+                )
+            else:
+                fmu_calculation_outputs.append(
+                    PublicationDescription(global_flag=True,
+                                            esdl_type=f"{self.simulator_configuration.esdl_type}", 
+                                            output_name=publication_name, 
+                                            output_unit=f"{output_variables[0].calculation_service_output_unit}", 
+                                            data_type=FMU_TO_HELICS_TYPE_MAPPING[output_variable.type]),
+                )
 
         fmu_calculation_information = HelicsCalculationInformation(
             time_period_in_seconds=fmu_variable_collections.step_size,

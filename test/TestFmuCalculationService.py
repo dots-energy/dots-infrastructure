@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 import unittest
-from dots_infrastructure.DataClasses import FmuInputVariable, SimulatorConfiguration, TimeStepInformation
+from dots_infrastructure.DataClasses import FmuInputVariable, FmuOutputVariable, SimulatorConfiguration, TimeStepInformation
 from dots_infrastructure.GenericFMUCs import FmuCalculationService
 from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
 from esdl import EnergySystem
@@ -27,7 +27,8 @@ class FmuModel(FmuCalculationService):
         fmu_file_names = ["test_dots_2.fmu", "test_dots_3.fmu"] # specify this in child class
         fmu_paths : List[Path] = [Path(__file__).parent / "test_fmus" / file_name for file_name in fmu_file_names]
         inputs = [FmuInputVariable("variable_input", "bla", INPUT_MAPPING_NAME, "W")]
-        super().__init__(fmu_paths, inputs)
+        outputs = [FmuOutputVariable("output_y", "bla", "W"), FmuOutputVariable("output_y2", "bla",  "W"), FmuOutputVariable("output_y3", "bla2",  "W")]
+        super().__init__(fmu_paths, inputs, outputs)
 
 class Test(unittest.TestCase):
 
@@ -55,7 +56,9 @@ class Test(unittest.TestCase):
         self.assertEqual(len(fmu_model.calculations), 1)
         added_calculation = fmu_model.calculations[0]
         self.assertEqual(len(added_calculation.helics_value_federate_info.inputs), 1)
-        self.assertEqual(len(added_calculation.helics_value_federate_info.outputs), 1)
+        self.assertEqual(len(added_calculation.helics_value_federate_info.outputs), 2)
+        self.assertEqual(added_calculation.helics_value_federate_info.outputs[0].data_type, h.HELICS_DATA_TYPE_VECTOR)
+        self.assertEqual(added_calculation.helics_value_federate_info.outputs[1].data_type, h.HELICS_DATA_TYPE_DOUBLE)
 
     def test_when_service_is_initialized_parameters_are_set_on_fmu(self):
         test_cases = [

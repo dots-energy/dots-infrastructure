@@ -119,3 +119,9 @@ class FmuInputVariable:
     esdl_type_input: str
     calculation_service_input_name: str
     calculation_service_input_unit: str
+
+@dataclass
+class FmuOutputVariable:
+    fmu_output_name: str
+    calculation_service_output_name: str
+    calculation_service_output_unit: str
