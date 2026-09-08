@@ -67,13 +67,14 @@ class EsdlHelper:
         if model_esdl_asset.id not in visited_assets:
             visited_assets.append(model_esdl_asset.id)
             for port in model_esdl_asset.port:
-                for connected_port in port.connectedTo:
-                    connected_asset = connected_port.eContainer()
-                    self.add_connected_esdl_object(
-                        connected_input_esdl_objects, calculation_services, input_descriptions, connected_asset, start_asset
-                    )
-                    if connected_asset.port != None and connected_asset.port != []:
-                        self.add_calc_services_from_ports_recursive(calculation_services, connected_input_esdl_objects, input_descriptions, connected_asset, start_asset, visited_assets)
+                if isinstance(port, esdl.InPort):
+                    for connected_port in port.connectedTo:
+                        connected_asset = connected_port.eContainer()
+                        self.add_connected_esdl_object(
+                            connected_input_esdl_objects, calculation_services, input_descriptions, connected_asset, start_asset
+                        )
+                        if connected_asset.port != None and connected_asset.port != []:
+                            self.add_calc_services_from_ports_recursive(calculation_services, connected_input_esdl_objects, input_descriptions, connected_asset, start_asset, visited_assets)
 
     def add_calc_services_from_building(self, calculation_services: List[str], connected_input_esdl_objects: List[CalculationServiceInput], input_descriptions : List[SubscriptionDescription], model_esdl_asset: esdl.EnergyAsset, building : esdl.Building):
         for esdl_entity in building.eAllContents():
@@ -90,10 +91,7 @@ class EsdlHelper:
         model_esdl_asset: esdl.EnergyAsset
     ):
         visited_assets = []
-        for port in model_esdl_asset.port:
-            if isinstance(port, esdl.InPort):
-                for connected_asset in port.connectedTo:
-                    visited_assets.append(connected_asset.eContainer().id)
+
         if isinstance(model_esdl_asset.eContainer(), esdl.Building):
             self.add_calc_services_from_building(calculation_services, connected_input_esdl_objects, input_descriptions, model_esdl_asset, model_esdl_asset.eContainer())
 

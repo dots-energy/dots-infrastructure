@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 src/dots_infrastructure/code_gen/documentation
 src/dots_infrastructure/code_gen/src
+/.venv2
