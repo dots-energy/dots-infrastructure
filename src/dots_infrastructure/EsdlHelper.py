@@ -1,6 +1,6 @@
 from base64 import b64decode
 from typing import List
-from esdl.esdl_handler import EnergySystemHandler
+from esdl.esdl_handler import EOrderedSet, EnergySystemHandler
 
 from esdl import esdl
 from esdl import EnergySystem
@@ -26,11 +26,28 @@ class EsdlHelper:
         for obj in energy_system.eAllContents():
             if hasattr(obj, "id"):
                 ret_val[obj.id] = obj
-                if not isinstance(obj, esdl.EnergyAsset):
-                    non_connected_esdl_ids.append(obj.id)
+
+        self.add_non_connected_ids(energy_system.services, non_connected_esdl_ids)
+        self.add_non_connected_ids(energy_system.measures, non_connected_esdl_ids)
+        self.add_non_connected_ids(energy_system.energySystemInformation, non_connected_esdl_ids)
+        self.add_non_connected_ids(energy_system.parties, non_connected_esdl_ids)
+        self.add_non_connected_ids(energy_system.sector, non_connected_esdl_ids)
+
         ret_val[energy_system.id] = energy_system
         return ret_val
-    
+
+    def add_non_connected_ids(self, root_obj, non_connected_esdl_ids):
+        if root_obj is not None:
+            if isinstance(root_obj, EOrderedSet):
+                for obj in root_obj:
+                    for sub_obj in obj.eAllContents():
+                        if not isinstance(sub_obj, esdl.EnergyAsset) and hasattr(sub_obj, "id"):
+                            non_connected_esdl_ids.append(sub_obj.id)
+            else:
+                for obj in root_obj.eAllContents():
+                    if not isinstance(obj, esdl.EnergyAsset) and hasattr(obj, "id") and obj.id is not None:
+                        non_connected_esdl_ids.append(obj.id)
+
     def extract_calculation_service_name(self, calculation_services: List[str], esdl_obj) -> str:
         esdl_obj_type_name = type(esdl_obj).__name__
         name = next(
