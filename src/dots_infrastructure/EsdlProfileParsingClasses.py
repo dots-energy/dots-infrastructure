@@ -94,10 +94,13 @@ class ParsedDateTimeProfile(ParsedStaticProfile):
     def get_data(self, from_data : datetime, to_data : datetime):
         from_data_altered_year, to_data_altered_year = self._alter_year_to_match_data(from_data, to_data)
         data : pd.DataFrame = self._parsed_profile
-        data_filtered = data[(data["from"] >= from_data_altered_year ) & (data["to"] <= to_data_altered_year )]
+        data_filtered = data[(from_data_altered_year < data["to"]) & (data["from"] <= from_data_altered_year)]
+        data_filtered_2 = data[(data["from"] >= from_data_altered_year) & (data["to"] <= to_data_altered_year )]
+        data_filtered_3 = data[(data["from"] < to_data_altered_year) & (to_data_altered_year < data["to"])]
+        data_filtered = pd.concat([data_filtered, data_filtered_2, data_filtered_3]).sort_values("from", ascending=True)
+        data_filtered = data_filtered.drop_duplicates(subset=["from", "to", "value"])
         values = data_filtered["value"].tolist()
         return values
-
 
 
 class ParsedTimeSeriesProfile(ParsedStaticProfile):

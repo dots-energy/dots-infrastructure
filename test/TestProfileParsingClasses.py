@@ -24,6 +24,12 @@ class TestProfileClasses(unittest.TestCase):
         date_time_profile.element.append(ProfileElement(from_=datetime(2020,1,2,2,0), to=datetime(2020,1,2,3,0), value=5.0))
         self.date_time_profile = date_time_profile
         self.time_series_profile = TimeSeriesProfile(startDateTime=datetime(2020,1,1,22,00), timestep=3600, values=[1.0,2.0,3.0,4.0,5.0])
+        date_time_profile2 = DateTimeProfile()
+        date_time_profile2.element.append(ProfileElement(from_=datetime(2020,1,1,21,0), to=datetime(2020,1,1,23,15), value=2.0))
+        date_time_profile2.element.append(ProfileElement(from_=datetime(2020,1,1,23,15), to=datetime(2020,1,2,0,0), value=3.0))
+        date_time_profile2.element.append(ProfileElement(from_=datetime(2020,1,2,0,15), to=datetime(2020,1,2,2,15), value=4.0))
+        self.date_time_profile2 = date_time_profile2
+
 
     def parse_profile(self, example : StaticProfile):
         if isinstance(example, TimeSeriesProfile):
@@ -32,10 +38,11 @@ class TestProfileClasses(unittest.TestCase):
             return ParsedDateTimeProfile(example)
 
     def test_given_parsed_profile_get_data_returns_correct_data(self):
-        
+
         test_cases = [
             self.date_time_profile,
-            self.time_series_profile
+            self.time_series_profile,
+            self.date_time_profile2
         ]
         for i, example in enumerate(test_cases):
             with self.subTest(i=i, params = example):

@@ -1,3 +1,4 @@
+from pathlib import Path
 import unittest
 import base64
 import helics as h
@@ -8,7 +9,7 @@ from dots_infrastructure.DataClasses import CalculationServiceInput, Subscriptio
 class TestParse(unittest.TestCase):
 
     def setUp(self):
-        with open("test-input-extraction-network.esdl", mode="r") as esdl_file:
+        with open(Path(__file__).parent / "test-input-extraction-network.esdl", mode="r") as esdl_file:
             self.encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
 
     def test_assets_in_building_can_get_inputs_from_other_assets_inside_building(self):
@@ -132,6 +133,34 @@ class TestParse(unittest.TestCase):
 
         # Assert correct assets are extracted from esdl file
         self.assertListEqual(expected_input_descriptions, inputs)
+
+    def test_aggregated_consumer_case(self):
+        simulator_esdl_id = '360277b4-9842-4f2b-9437-21512ee72390'
+
+        with open(Path(__file__).parent / "test-aggregated-consumer.esdl", mode="r") as esdl_file:
+            encoded_base64_esdl = base64.b64encode(esdl_file.read().encode('utf-8')).decode('utf-8')
+
+        esdl_helper = EsdlHelper(encoded_base64_esdl)
+
+        subscription_descriptions = [
+            SubscriptionDescription("AggregatedConsumer", "test_val", "W", h.HelicsDataType.DOUBLE),
+        ]
+        
+        expected_input_descriptions = [
+            CalculationServiceInput("AggregatedConsumer", "test_val", 'bfe23612-958e-41ad-8970-d0cbbb1814e3', "W", h.HelicsDataType.DOUBLE, simulator_esdl_id, "AggregatedConsumer/test_val/bfe23612-958e-41ad-8970-d0cbbb1814e3"),
+        ]
+        
+        calculation_services = [
+            "EConnection",
+            "AggregatedConsumer"
+        ]
+        
+        # Execute
+        inputs = esdl_helper.get_connected_input_esdl_objects(simulator_esdl_id, calculation_services, subscription_descriptions)
+        
+        # Assert correct assets are extracted from esdl file
+        self.assertListEqual(expected_input_descriptions, inputs)
+
 
     def test_non_energy_entity_subscriptions_are_correctly_extracted(self):
         # Arrange
