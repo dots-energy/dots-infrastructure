@@ -348,7 +348,7 @@ class CalculationServiceCarriersOffset(HelicsSimulationExecutor):
 class TestSimulation(unittest.TestCase):
 
     def start_helics_broker(self, federates):
-        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime --port {BROKER_TEST_PORT_INIT}")
+        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime --port {BROKER_TEST_PORT_SIMULATION}")
         broker.wait_for_disconnect(MS_TO_BROKER_DISCONNECT)
 
     def setUp(self):
