@@ -24,6 +24,7 @@ class HelicsFederateExecutor:
 
     def init_default_federate_info(self, broker_port : int):
         federate_info = h.helicsCreateFederateInfo()
+        LOGGER.debug(f"Initializing federate with broker port {broker_port}")
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
         h.helicsFederateInfoSetBrokerPort(federate_info, broker_port)
         h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
@@ -32,7 +33,6 @@ class HelicsFederateExecutor:
 
     def init_calculation_service_federate_info(self, info : HelicsCalculationInformation, broker_port : int):
         federate_info = self.init_default_federate_info(broker_port)
-        h.helicsFederateInfoSetBrokerPort(federate_info, broker_port)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.federate_time_period)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_DELTA, info.time_delta)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_OFFSET, info.offset)
