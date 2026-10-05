@@ -69,8 +69,7 @@ class SimulatorConfiguration:
     esdl_ids : List[str]
     model_id : str
     broker_ip : str
-    broker_port_init : int
-    broker_port_simulation : int
+    broker_port : int
     simulation_id : str
     simulation_duration_in_seconds : int
     start_time : datetime

@@ -16,8 +16,7 @@ from dots_infrastructure.Logger import LOGGER
 from dots_infrastructure.test_infra.InfluxDBMock import InfluxDBMock
 from esdl.esdl import EnergySystem
 
-BROKER_TEST_PORT_INIT = 23404
-BROKER_TEST_PORT_SIMULATION = 23405
+BROKER_TEST_PORT = 23404
 START_DATE_TIME = datetime(2024, 1, 1, 0, 0, 0)
 SIMULATION_DURATION_IN_SECONDS = 120
 CALCULATION_SERVICES = ["PVInstallation", "EConnection", "EnergyMarket", "Carriers"]
@@ -32,7 +31,7 @@ BROKER_IP = "127.0.0.1"
 MS_TO_BROKER_DISCONNECT = 60000
 
 def simulator_environment_e_pv():
-    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT_INIT, BROKER_TEST_PORT_SIMULATION, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("PVInstallation", ['176af591-6d9d-4751-bb0f-fac7e99b1c3d','b8766109-5328-416f-9991-e81a5cada8a6'], "Mock-PV", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServicePVDispatch(HelicsSimulationExecutor):
 
@@ -93,7 +92,7 @@ class CalculationServicePVDispatchMultipleOutputs(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_energy_market():
-    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT_INIT, BROKER_TEST_PORT_SIMULATION, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("EnergyMarket", ["b612fc89-a752-4a30-84bb-81ebffc56b50"], "Mock-MarketService", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceMarketService(HelicsSimulationExecutor):
 
@@ -119,7 +118,7 @@ class CalculationServiceMarketService(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_connection():
-    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT_INIT, BROKER_TEST_PORT_SIMULATION, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("EConnection", ["f006d594-0743-4de5-a589-a6c2350898da"], "Mock-Econnection", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceEConnection(HelicsSimulationExecutor):
 
@@ -172,7 +171,7 @@ class CalculationServiceEConnection(HelicsSimulationExecutor):
         return ret_val
 
 def simulator_environment_e_commonity():
-    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT_INIT, BROKER_TEST_PORT_SIMULATION, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
+    return SimulatorConfiguration("Carriers", ["02fafa20-a1bd-488e-a4db-f3c0ca7ff51a"], "Mock-Commonity", BROKER_IP, BROKER_TEST_PORT, SIMULATION_ID, SIMULATION_DURATION_IN_SECONDS, START_DATE_TIME, INFLUX_HOST, STR_INFLUX_TEST_PORT, INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DB_NAME, h.HelicsLogLevel.DEBUG, CALCULATION_SERVICES)
 
 class CalculationServiceElectricityCommodity(HelicsSimulationExecutor):
     def __init__(self):
@@ -348,7 +347,7 @@ class CalculationServiceCarriersOffset(HelicsSimulationExecutor):
 class TestSimulation(unittest.TestCase):
 
     def start_helics_broker(self, federates):
-        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime --port {BROKER_TEST_PORT_SIMULATION}")
+        broker = h.helicsCreateBroker("zmq", "helics_broker_test", f"-f {federates} --loglevel=debug --timeout='60s' --globaltime --port {BROKER_TEST_PORT}")
         broker.wait_for_disconnect(MS_TO_BROKER_DISCONNECT)
 
     def setUp(self):
