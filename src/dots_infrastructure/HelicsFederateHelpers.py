@@ -22,17 +22,16 @@ class HelicsFederateExecutor:
     def __init__(self):
         self.simulator_configuration = CalculationServiceHelperFunctions.get_simulator_configuration_from_environment()
 
-    def init_default_federate_info(self, broker_port : int):
+    def init_default_federate_info(self):
         federate_info = h.helicsCreateFederateInfo()
-        LOGGER.debug(f"Initializing federate with broker port {broker_port}")
         h.helicsFederateInfoSetBroker(federate_info, self.simulator_configuration.broker_ip)
-        h.helicsFederateInfoSetBrokerPort(federate_info, broker_port)
+        h.helicsFederateInfoSetBrokerPort(federate_info, self.simulator_configuration.broker_port)
         h.helicsFederateInfoSetCoreType(federate_info, h.HelicsCoreType.ZMQ)
         h.helicsFederateInfoSetIntegerProperty(federate_info, h.HelicsProperty.INT_LOG_LEVEL, h.HelicsLogLevel.NO_PRINT)
         return federate_info
 
-    def init_calculation_service_federate_info(self, info : HelicsCalculationInformation, broker_port : int):
-        federate_info = self.init_default_federate_info(broker_port)
+    def init_calculation_service_federate_info(self, info : HelicsCalculationInformation):
+        federate_info = self.init_default_federate_info()
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_PERIOD, info.federate_time_period)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_DELTA, info.time_delta)
         h.helicsFederateInfoSetTimeProperty(federate_info, h.HelicsProperty.TIME_OFFSET, info.offset)
@@ -49,7 +48,7 @@ class HelicsInitializationMessagesFederateExecutor(HelicsFederateExecutor):
         self.esdl_message_enpoint = None
 
     def init_federate(self):
-        federate_info = self.init_default_federate_info(self.simulator_configuration.broker_port_init)
+        federate_info = self.init_default_federate_info()
         self.message_federate = h.helicsCreateMessageFederate(f"{self.simulator_configuration.model_id}", federate_info)
         self.esdl_message_enpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.esdl_endpoint_name)
         self.amount_of_calculations_endpoint = h.helicsFederateRegisterEndpoint(self.message_federate, self.helics_message_federate_information.amount_of_calculations_endpoint_name)
@@ -140,7 +139,7 @@ class HelicsValueFederateExecutor(HelicsFederateExecutor):
 
     def init_federate(self, esdl_helper : EsdlHelper):
         LOGGER.debug(f"[{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}] Initializing federate info")
-        federate_info = self.init_calculation_service_federate_info(self.helics_value_federate_info, self.simulator_configuration.broker_port_simulation)
+        federate_info = self.init_calculation_service_federate_info(self.helics_value_federate_info)
         LOGGER.debug(f"[{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}] Creating HELICS value federate")
         self.value_federate = h.helicsCreateValueFederate(f"{self.simulator_configuration.model_id}/{self.helics_value_federate_info.calculation_name}", federate_info)
         self.init_inputs(self.helics_value_federate_info.inputs, esdl_helper, self.value_federate)
